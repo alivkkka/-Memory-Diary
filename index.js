@@ -29,7 +29,7 @@ function render(){
  const m=mem(), body=$('#mb-body',panel); 
  panel.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===activeTab)));
  $('#mb-count',panel).textContent=`${activeRecords(m,chat()).length} активных · ${m.records.filter(r=>!r.deleted).length} всего`;
- if(activeTab==='settings'){body.innerHTML=settingsHtml(m);return;}
+ if(activeTab==='settings'){body.innerHTML=`<div id="mb-settings">${settingsHtml(m)}</div>`;return;}
  if(activeTab==='summary'){body.innerHTML=summaryHtml(m);return;}
  const {invalid}=branchCheck(m,chat());
  const records=activeRecords(m,chat()).filter(r=>!search||norm(`${r.title} ${r.content} ${CATEGORIES[r.category]}`).includes(norm(search))).filter(r=>filter==='all'||(filter==='important'&&(r.importance||0)>=4)||(filter==='personal'&&['relationship','preference','secret','quote'].includes(r.category))||(filter==='user'&&(r.sources||[]).some(src=>chat()[src.index]?.is_user)));
