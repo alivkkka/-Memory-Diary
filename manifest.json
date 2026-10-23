@@ -1,0 +1,12 @@
+{
+  "display_name": "Memory Diary · Дневник памяти",
+  "loading_order": 60,
+  "requires": [],
+  "optional": [],
+  "js": "index.js",
+  "css": "style.css",
+  "author": "Memory Diary",
+  "version": "0.1.1",
+  "homePage": "",
+  "auto_update": false
+}
