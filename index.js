@@ -6,7 +6,7 @@ import { extract } from './api.js';
 const ctx=()=>{ try{return getContext?.()||globalThis.SillyTavern?.getContext?.()||{};}catch{return {};} };
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let panel=null, activeTab='memories', busy=false, autoCounter=0, lastScope='', search='', currentRange={start:'',end:''}, aborter=null;
+let panel=null, activeTab='memories', busy=false, autoCounter=0, lastScope='', search='', filter='all', currentRange={start:'',end:''}, aborter=null;
 const scope=()=>{const c=ctx();return `${c.groupId||'solo'}:${c.characterId??''}:${c.getCurrentChatId?.()??c.chatId??''}`;};
 function chat(){return ctx().chat||[];}
 function mem(){const c=ctx();if(!c.chatMetadata)c.chatMetadata={};c.chatMetadata[KEY]=normalizeMemory(c.chatMetadata[KEY]);return c.chatMetadata[KEY];}
@@ -15,10 +15,9 @@ function toast(msg){let t=$('#mb-toast');if(!t){t=document.createElement('div');
 function ensurePanel(){
  if($('#mb-panel')){panel=$('#mb-panel');return;}
  panel=document.createElement('section');panel.id='mb-panel';panel.hidden=true;panel.innerHTML=`
- <header class="mb-head"><div><div class="mb-kicker">✦ YOUR PERSONAL ARCHIVE ✦</div><h2><span class="mb-bookmark">♡</span> MemoryBook</h2><div class="mb-sub">Память. Итоги. Твой персонаж.</div></div><button data-action="close" class="mb-icon" title="Закрыть">×</button></header>
- <div class="mb-toolbar"><button data-action="save-range" class="mb-primary">✦ Сохранить диапазон</button><button data-action="save-new">Найти новое</button><button data-action="new-manual">+ Своя запись</button><button data-action="refresh">Обновить контекст</button></div>
- <nav class="mb-tabs"><button data-tab="memories">💌 Память</button><button data-tab="history">✧ История</button><button data-tab="settings">⚙ Настройки</button></nav>
- <div id="mb-body"></div><footer class="mb-footer"><span id="mb-count"></span><span>Память хранится отдельно для каждого чата</span></footer>`;
+ <header class="mb-head"><div class="mb-hero-art" aria-hidden="true"><span class="mb-moon">☾</span><span class="mb-spark">✦</span><span class="mb-flower">❀</span><span class="mb-book">📖</span></div><div class="mb-head-copy"><div class="mb-kicker">✦ ЛИЧНЫЙ АРХИВ ✦</div><h2>MemoryBook</h2><div class="mb-sub">Память. Итоги. Твой персонаж.</div></div><button data-action="close" class="mb-icon" title="Закрыть">×</button></header>
+ <nav class="mb-tabs"><button data-tab="memories">💌 Память</button><button data-tab="summary">✧ Сводка</button><button data-tab="settings">🪄 Настройки</button></nav>
+ <div id="mb-body"></div><footer class="mb-footer"><span id="mb-count"></span><span>♡ Каждая деталь имеет значение</span></footer>`;
  document.body.append(panel);
  panel.addEventListener('click',onClick);
  panel.addEventListener('change',onChange);
@@ -31,12 +30,11 @@ function render(){
  panel.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===activeTab)));
  $('#mb-count',panel).textContent=`${activeRecords(m,chat()).length} активных · ${m.records.filter(r=>!r.deleted).length} всего`;
  if(activeTab==='settings'){body.innerHTML=settingsHtml(m);return;}
- if(activeTab==='history'){body.innerHTML=historyHtml(m);return;}
+ if(activeTab==='summary'){body.innerHTML=summaryHtml(m);return;}
  const {invalid}=branchCheck(m,chat());
- const records=activeRecords(m,chat()).filter(r=>!search||norm(`${r.title} ${r.content} ${CATEGORIES[r.category]}`).includes(norm(search)));
- body.innerHTML=`<div class="mb-info">Скрытие сообщения не удаляет уже сохранённую память. Источники проверяются по ID и отпечатку текста. ${invalid.length?`<strong>Найдены устаревшие записи: ${invalid.length}.</strong>`:''}</div>
- <input class="mb-search" id="mb-search" placeholder="Поиск по воспоминаниям…" value="${esc(search)}">
- <div class="mb-range"><div class="mb-grid"><label>С № сообщения<input id="mb-start" type="number" min="0" placeholder="0" value="${esc(currentRange.start)}"></label><label>По № сообщения<input id="mb-end" type="number" min="0" placeholder="${Math.max(0,chat().length-1)}" value="${esc(currentRange.end)}"></label></div><p class="mb-muted">Нумерация как в Таверне: первое сообщение — №0. Ручной диапазон включает скрытые сообщения.</p></div>
+ const records=activeRecords(m,chat()).filter(r=>!search||norm(`${r.title} ${r.content} ${CATEGORIES[r.category]}`).includes(norm(search))).filter(r=>filter==='all'||(filter==='important'&&(r.importance||0)>=4)||(filter==='personal'&&['relationship','preference','secret','quote'].includes(r.category))||(filter==='user'&&(r.sources||[]).some(src=>chat()[src.index]?.is_user)));
+ body.innerHTML=`<div class="mb-tools"><input class="mb-search" id="mb-search" placeholder="⌕ Поиск по памяти…" value="${esc(search)}"><div class="mb-filters"><button data-filter="all" class="${filter==='all'?'is-active':''}">Все</button><button data-filter="important" class="${filter==='important'?'is-active':''}">⭐ Важное</button><button data-filter="personal" class="${filter==='personal'?'is-active':''}">♡ Личное</button><button data-filter="user" class="${filter==='user'?'is-active':''}">♙ Пользователь</button></div><div class="mb-action-strip"><button data-action="save-new">✧ Найти новое</button><button data-action="save-range">↗ Обработать диапазон</button><button data-action="new-manual" class="mb-primary">＋ Добавить</button></div></div>
+ ${invalid.length?`<div class="mb-info mb-warn">⚠️ Найдены устаревшие записи: ${invalid.length}. Проверь источники перед использованием в контексте.</div>`:''}
  ${invalid.length?`<div class="mb-card mb-warn"><h3>⚠️ Записи с устаревшими источниками</h3><p>Они не попадут в контекст автоматически. Проверь их и при необходимости сохрани как ручные, либо удали.</p><button data-action="mark-stale-manual">Сделать устаревшие ручными</button><button data-action="delete-stale" class="mb-danger">Удалить устаревшие</button></div>`:''}
  ${records.length?records.slice().reverse().map(recordHtml).join(''):`<div class="mb-empty"><span>🌙</span><strong>Пока нет воспоминаний</strong><p>Выбери диапазон сообщений или включи автоматическое сохранение в настройках.</p></div>`}`;
 }
@@ -44,6 +42,10 @@ function recordHtml(r){
  const sourceText=r.manual?'Ручная запись':`${(r.sources||[]).length} исходн. сообщ.`;
  const icon=({fact:'♡',event:'✦',relationship:'♥',preference:'♧',goal:'⚑',other:'✧'})[r.category]||'✧';
  return `<article class="mb-card" data-id="${esc(r.id)}"><div class="mb-record-icon" aria-hidden="true">${icon}</div><div class="mb-record-main"><div class="mb-tags"><span class="mb-tag">${esc(CATEGORIES[r.category]||'Воспоминание')}</span><span class="mb-tag">Важность ${r.importance||3}/5</span>${r.pinned?'<span class="mb-tag">📌 Закреплено</span>':''}${r.manual?'<span class="mb-tag">✍️ Защищено</span>':''}</div><h3>${esc(r.title)}</h3><p>${esc(r.content)}</p><div class="mb-date">${esc(sourceText)}</div><div class="mb-row"><button data-action="edit" data-id="${esc(r.id)}">Править</button><button data-action="pin" data-id="${esc(r.id)}">${r.pinned?'Открепить':'Закрепить'}</button><button data-action="manualize" data-id="${esc(r.id)}">${r.manual?'Ручная ✓':'Защитить'}</button><button data-action="toggle" data-id="${esc(r.id)}">${r.enabled===false?'Включить':'Отключить'}</button><button data-action="delete" data-id="${esc(r.id)}" class="mb-danger">🗑 Удалить</button></div></div></article>`;
+}
+function summaryHtml(m){
+ const records=activeRecords(m,chat());const important=records.filter(r=>(r.importance||0)>=4);const personal=records.filter(r=>['relationship','preference','secret','quote'].includes(r.category));const plans=records.filter(r=>/план|хочет|мечта|цель|собирается|намерен/i.test(`${r.title} ${r.content}`));const latest=records.slice().sort((a,b)=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0))[0];const name=ctx().name2||ctx().characterName||'Твой персонаж';
+ return `<section class="mb-summary-hero"><div class="mb-avatar">${esc((name.trim()[0]||'♡').toUpperCase())}</div><div><span class="mb-kicker">ТВОЙ ПЕРСОНАЖ</span><h3>${esc(name)}</h3><p>Всё важное — в одном месте ♡</p></div><button data-action="refresh" class="mb-refresh">⟳ Обновить</button></section><div class="mb-stats"><div><strong>${records.length}</strong><span>заметок</span></div><div><strong>${important.length}</strong><span>важных</span></div><div><strong>${personal.length}</strong><span>личных</span></div><div><strong>${plans.length}</strong><span>планов</span></div></div><section class="mb-summary-card"><h3>✧ Ключевые моменты</h3>${records.slice().sort((a,b)=>(b.importance||0)-(a.importance||0)).slice(0,5).map(r=>`<p class="mb-keyline"><span>♥</span><span><b>${esc(r.title)}</b><br>${esc(r.content)}</span></p>`).join('')||'<p>Пока нет сохранённых моментов. Добавь заметку или обработай сообщения чата.</p>'}</section><section class="mb-summary-card"><h3>🕯 Последнее обновление</h3>${latest?`<blockquote>${esc(latest.content)}<small>— ${esc(name)} · ${new Date(latest.updatedAt||latest.createdAt||Date.now()).toLocaleDateString()}</small></blockquote>`:'<p>Здесь появится последнее сохранённое воспоминание.</p>'}</section><section class="mb-summary-card"><h3>🪄 Быстрые действия</h3><div class="mb-quick-grid"><button data-action="new-manual">＋<span>Добавить заметку</span></button><button data-action="generate-summary">▤<span>Сгенерировать сводку</span></button><button data-action="import-chat">⇩<span>Импорт из чата</span></button><button data-action="export">⇧<span>Экспорт</span></button><button data-action="clear-memory" class="mb-danger">♲<span>Очистить память</span></button></div></section>`;
 }
 function historyHtml(m){
  const batches=(m.batches||[]).slice().reverse();
@@ -63,12 +65,15 @@ function onChange(e){
 async function onClick(e){
  const b=e.target.closest('button');if(!b)return;
  if(b.dataset.tab){activeTab=b.dataset.tab;render();return;}
+ if(b.dataset.filter){filter=b.dataset.filter;render();return;}
  const action=b.dataset.action,id=b.dataset.id,m=mem();
  try{
   if(action==='close'){close();return;}
   if(action==='save-range'){await saveRange();return;}
-  if(action==='save-new'){await saveNew();return;}
-  if(action==='refresh'){updateContext();toast('Контекст Дневника памяти обновлён.');return;}
+  if(action==='save-new'||action==='import-chat'){await saveNew();return;}
+  if(action==='refresh'){updateContext();render();toast('Сводка обновлена.');return;}
+  if(action==='generate-summary'){activeTab='summary';render();toast('Сводка собрана из сохранённых воспоминаний.');return;}
+  if(action==='clear-memory'){if(!confirm('Удалить все воспоминания именно из этого чата? Это действие нельзя отменить.'))return;m.records=[];m.batches=[];await persist();toast('Память этого чата очищена.');return;}
   if(action==='new-manual'){openWithManual();return;}
   if(action==='save-settings'){saveSettingsFromUI();await persist();toast('Настройки сохранены.');return;}
   if(action==='edit'){editRecord(id);return;}
