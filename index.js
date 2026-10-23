@@ -1,4 +1,4 @@
-import { setExtensionPrompt, extension_prompt_types, eventSource, event_types } from '../../../script.js';
+import { setExtensionPrompt, extension_prompt_types, eventSource, event_types } from '../../../../script.js';
 import { getContext } from '../../../extensions.js';
 import { KEY, CATEGORIES, DEFAULTS, uid, clone, norm, fingerprint, eligible, hidden, ensureIds, source, emptyMemory, normalizeMemory, activeRecords, validateExtraction, mergeRecord, branchCheck, formatContext, selectContext } from './core.js';
 import { extract } from './api.js';
@@ -143,8 +143,27 @@ function updateContext(){
  setExtensionPrompt('memory_book_context',formatContext(selected),{position:extension_prompt_types.IN_CHAT,depth:s.contextDepth});
 }
 function setupFloating(){
- if($('#mb-fab'))return;
- const b=document.createElement('button');b.id='mb-fab';b.textContent='📚';b.title='Открыть Дневник памяти';b.onclick=open;document.body.append(b);
+ let b=$('#mb-fab');
+ if(!b){b=document.createElement('button');b.id='mb-fab';b.type='button';b.textContent='📚';b.title='Открыть Дневник памяти';b.setAttribute('aria-label','Открыть Дневник памяти');document.body.append(b);}
+ if(b.dataset.bound!=='1'){b.dataset.bound='1';b.addEventListener('click',open);}
+}
+function ensureWand(){
+ const menu=$('#extensionsMenu');
+ if(!menu||$('#mb-wand'))return;
+ const item=document.createElement('div');item.id='mb-wand';item.className='list-group-item flex-container flexGap5 interactable';item.tabIndex=0;
+ item.innerHTML='<span aria-hidden="true">📚</span><span>Memory Diary — Дневник памяти</span>';
+ item.addEventListener('click',e=>{e.preventDefault();open();});
+ item.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}});
+ menu.appendChild(item);
+}
+function ensureSettings(){
+ const host=$('#extensions_settings2')||$('#extensions_settings');
+ if(!host||$('#mb-settings'))return;
+ const wrap=document.createElement('div');wrap.id='mb-settings';wrap.className='inline-drawer';
+ wrap.innerHTML='<div class="inline-drawer-toggle inline-drawer-header"><b>📚 Memory Diary — Дневник памяти</b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content"><p>Личный архив событий, отношений и важных деталей ролевой истории.</p><button id="mb-open-settings" class="menu_button">📖 Открыть Дневник памяти</button></div>';
+ host.appendChild(wrap);
+ const toggle=wrap.querySelector('.inline-drawer-toggle');toggle?.addEventListener('click',()=>wrap.classList.toggle('open'));
+ wrap.querySelector('#mb-open-settings')?.addEventListener('click',open);
 }
 function installEvents(){
  const ev=event_types||{};
@@ -154,9 +173,13 @@ function installEvents(){
  }
 }
 function init(){
- setupFloating();ensurePanel();installEvents();lastScope=scope();
+ setupFloating();ensurePanel();ensureWand();ensureSettings();installEvents();lastScope=scope();
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel&&!panel.hidden)close();});
  updateContext();
+ // SillyTavern creates some extension UI containers after third-party scripts load.
+ // Retry registration, matching the approach used by the working LoveMed extension.
+ setInterval(()=>{setupFloating();ensureWand();ensureSettings();},2000);
+ console.info('[Memory Diary] initialized', { floatingButton:!!$('#mb-fab'), wandMenu:!!$('#mb-wand') });
 }
 function openWithManual(){open();const title=prompt('Заголовок нового воспоминания');if(title===null||!title.trim())return;const content=prompt('Что нужно запомнить?');if(content===null||!content.trim())return;const category=prompt('Категория: '+Object.keys(CATEGORIES).join(', '),'event')||'event';const m=mem();m.records.push({id:uid(),title:title.trim(),content:content.trim(),category:Object.hasOwn(CATEGORIES,category)?category:'other',importance:4,pinned:true,enabled:true,manual:true,sources:[],createdAt:Date.now(),updatedAt:Date.now()});persist().catch(e=>toast(e.message));}
 init();
