@@ -15,9 +15,9 @@ function toast(msg){let t=$('#mb-toast');if(!t){t=document.createElement('div');
 function ensurePanel(){
  if($('#mb-panel')){panel=$('#mb-panel');return;}
  panel=document.createElement('section');panel.id='mb-panel';panel.hidden=true;panel.innerHTML=`
- <header class="mb-head"><div><div class="mb-kicker">STORY ARCHIVE</div><h2>📖 Memory Diary</h2><div class="mb-sub">Дневник памяти твоего РП</div></div><button data-action="close" class="mb-icon" title="Закрыть">×</button></header>
+ <header class="mb-head"><div><div class="mb-kicker">✦ YOUR PERSONAL ARCHIVE ✦</div><h2><span class="mb-bookmark">♡</span> MemoryBook</h2><div class="mb-sub">Память. Итоги. Твой персонаж.</div></div><button data-action="close" class="mb-icon" title="Закрыть">×</button></header>
  <div class="mb-toolbar"><button data-action="save-range" class="mb-primary">✦ Сохранить диапазон</button><button data-action="save-new">Найти новое</button><button data-action="new-manual">+ Своя запись</button><button data-action="refresh">Обновить контекст</button></div>
- <nav class="mb-tabs"><button data-tab="memories">Воспоминания</button><button data-tab="history">История</button><button data-tab="settings">Настройки</button></nav>
+ <nav class="mb-tabs"><button data-tab="memories">💌 Память</button><button data-tab="history">✧ История</button><button data-tab="settings">⚙ Настройки</button></nav>
  <div id="mb-body"></div><footer class="mb-footer"><span id="mb-count"></span><span>Память хранится отдельно для каждого чата</span></footer>`;
  document.body.append(panel);
  panel.addEventListener('click',onClick);
@@ -42,7 +42,8 @@ function render(){
 }
 function recordHtml(r){
  const sourceText=r.manual?'Ручная запись':`${(r.sources||[]).length} исходн. сообщ.`;
- return `<article class="mb-card" data-id="${esc(r.id)}"><div class="mb-tags"><span class="mb-tag">${esc(CATEGORIES[r.category]||'Воспоминание')}</span><span class="mb-tag">Важность ${r.importance||3}/5</span>${r.pinned?'<span class="mb-tag">📌 Закреплено</span>':''}${r.manual?'<span class="mb-tag">✍️ Защищено</span>':''}</div><h3>${esc(r.title)}</h3><p>${esc(r.content)}</p><div class="mb-date">${esc(sourceText)}</div><div class="mb-row"><button data-action="edit" data-id="${esc(r.id)}">Править</button><button data-action="pin" data-id="${esc(r.id)}">${r.pinned?'Открепить':'Закрепить'}</button><button data-action="manualize" data-id="${esc(r.id)}">${r.manual?'Ручная ✓':'Защитить'}</button><button data-action="toggle" data-id="${esc(r.id)}">${r.enabled===false?'Включить':'Отключить'}</button><button data-action="delete" data-id="${esc(r.id)}" class="mb-danger">Удалить</button></div></article>`;
+ const icon=({fact:'♡',event:'✦',relationship:'♥',preference:'♧',goal:'⚑',other:'✧'})[r.category]||'✧';
+ return `<article class="mb-card" data-id="${esc(r.id)}"><div class="mb-record-icon" aria-hidden="true">${icon}</div><div class="mb-record-main"><div class="mb-tags"><span class="mb-tag">${esc(CATEGORIES[r.category]||'Воспоминание')}</span><span class="mb-tag">Важность ${r.importance||3}/5</span>${r.pinned?'<span class="mb-tag">📌 Закреплено</span>':''}${r.manual?'<span class="mb-tag">✍️ Защищено</span>':''}</div><h3>${esc(r.title)}</h3><p>${esc(r.content)}</p><div class="mb-date">${esc(sourceText)}</div><div class="mb-row"><button data-action="edit" data-id="${esc(r.id)}">Править</button><button data-action="pin" data-id="${esc(r.id)}">${r.pinned?'Открепить':'Закрепить'}</button><button data-action="manualize" data-id="${esc(r.id)}">${r.manual?'Ручная ✓':'Защитить'}</button><button data-action="toggle" data-id="${esc(r.id)}">${r.enabled===false?'Включить':'Отключить'}</button><button data-action="delete" data-id="${esc(r.id)}" class="mb-danger">🗑 Удалить</button></div></div></article>`;
 }
 function historyHtml(m){
  const batches=(m.batches||[]).slice().reverse();
