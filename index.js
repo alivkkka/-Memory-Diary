@@ -1,4 +1,4 @@
-import { setExtensionPrompt, extension_prompt_types, eventSource, event_types } from '../../../../script.js';
+import { setExtensionPrompt, extension_prompt_types, eventSource, event_types } from '../../../script.js';
 import { getContext } from '../../../extensions.js';
 import { KEY, CATEGORIES, DEFAULTS, uid, clone, norm, fingerprint, eligible, hidden, ensureIds, source, emptyMemory, normalizeMemory, activeRecords, validateExtraction, mergeRecord, branchCheck, formatContext, selectContext } from './core.js';
 import { extract } from './api.js';
