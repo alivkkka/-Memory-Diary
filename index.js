@@ -50,7 +50,7 @@ function historyHtml(m){
 }
 function settingsHtml(m){
  const s=m.settings;
- return `<div class="mb-card"><h3>Автоматическое сохранение</h3><label class="mb-check"><input type="checkbox" id="mb-auto" ${s.autoSave?'checked':''}> Автоматически архивировать новые сообщения</label><label>Проверять каждые N новых сообщений<input type="number" id="mb-every" min="2" max="50" value="${s.autoEvery}"></label><label>Максимум сообщений за одну операцию<input type="number" id="mb-max" min="2" max="30" value="${s.maxAutoMessages}"></label><p class="mb-muted">Автоархив обрабатывает только новые видимые сообщения. Скрытые старые сообщения можно сохранить вручную через диапазон.</p></div>
+ return `<div class="mb-card"><h3>Автоматическое сохранение</h3><label class="mb-check"><input type="checkbox" id="mb-auto" ${s.autoSave?'checked':''}> Автоматически архивировать новые сообщения</label><label>Запускать обработку после N новых сообщений<input type="number" id="mb-every" min="10" max="500" step="5" value="${s.autoEvery}"></label><label>Размер пачки для анализа<input type="number" id="mb-max" min="10" max="200" step="5" value="${s.maxAutoMessages}"></label><label>Строгость отбора воспоминаний<select id="mb-memory-mode"><option value="strict" ${s.memoryMode==='strict'?'selected':''}>Только самое важное</option><option value="balanced" ${s.memoryMode==='balanced'?'selected':''}>Сбалансированно</option><option value="detailed" ${s.memoryMode==='detailed'?'selected':''}>Подробно</option></select></label><p class="mb-muted">После накопления ${s.autoEvery} новых сообщений дневник анализирует пачку целиком. Он может создать несколько записей или не сохранить ничего, если в переписке нет значимых событий. Кнопка «Найти новое» позволяет запускать обработку вручную.</p></div>
  <div class="mb-card"><h3>Контекст модели</h3><label class="mb-check"><input type="checkbox" id="mb-context" ${s.contextEnabled?'checked':''}> Добавлять выбранные воспоминания в контекст РП</label><label>Глубина контекста (слои)<input type="number" id="mb-depth" min="0" max="4" value="${s.contextDepth}"></label><label>Максимум записей за ответ<input type="number" id="mb-limit" min="1" max="30" value="${s.contextLimit}"></label><label class="mb-check"><input type="checkbox" id="mb-recall" ${s.autoRecall?'checked':''}> Автоматически подбирать релевантные воспоминания</label></div>
  <div class="mb-card"><h3>Инструкции архивариусу</h3><textarea id="mb-prompt" placeholder="Дополнительные правила извлечения…">${esc(s.customPrompt||'')}</textarea><div class="mb-row"><button data-action="save-settings" class="mb-primary">Сохранить настройки</button><button data-action="export">Экспорт памяти</button><button data-action="import">Импорт памяти</button><button data-action="reset">Сбросить настройки</button></div></div>`;
 }
@@ -84,8 +84,9 @@ async function onClick(e){
 }
 function saveSettingsFromUI(){
  const s=mem().settings;
- s.autoSave=$('#mb-auto').checked;s.autoEvery=clampNum($('#mb-every').value,2,50,8);
- s.maxAutoMessages=clampNum($('#mb-max').value,2,30,12);
+ s.autoSave=$('#mb-auto').checked;s.autoEvery=clampNum($('#mb-every').value,10,500,50);
+ s.maxAutoMessages=clampNum($('#mb-max').value,10,200,50);
+ s.memoryMode=['strict','balanced','detailed'].includes($('#mb-memory-mode').value)?$('#mb-memory-mode').value:'balanced';s.autoBatchVersion=2;
  s.contextEnabled=$('#mb-context').checked;s.contextDepth=clampNum($('#mb-depth').value,0,4,2);
  s.contextLimit=clampNum($('#mb-limit').value,1,30,12);s.autoRecall=$('#mb-recall').checked;
  s.customPrompt=$('#mb-prompt').value.trim();
@@ -122,7 +123,7 @@ async function saveRange(startOverride,endOverride,automatic=false){
    const parsed=validateExtraction(raw,selected.map(m=>({name:m.name,is_user:m.is_user,mes:m.mes,extra:{memoryBookId:m.extra?.memoryBookId,memoryBookIndex:m._mbIndex}})));
    const m=mem();let added=0,merged=0;
    for(const r of parsed.records){const result=mergeRecord(m,r);result.merged?merged++:added++;}
-   m.batches.push({id:uid(),at:Date.now(),title:automatic?'Автоматическое сохранение':'Сохранение диапазона',start,end,added:added+merged,summary:parsed.summary});
+   m.batches.push({id:uid(),at:Date.now(),title:automatic?'Автоматическая обработка пачки':'Сохранение диапазона',start,end,added:added+merged,summary:parsed.summary,automatic:!!automatic});
    m.batches=m.batches.slice(-100);m.revision=(m.revision||0)+1;
    await persist();toast(`Готово: ${added} новых, ${merged} объединено.`);
  }catch(err){if(err.name!=='AbortError')toast(`Не удалось сохранить: ${err.message||err}`);}
@@ -169,7 +170,7 @@ function installEvents(){
  const ev=event_types||{};
  for(const name of ['CHAT_CHANGED','MESSAGE_RECEIVED','MESSAGE_SENT','GENERATION_ENDED','GENERATION_STARTED']){
    const type=ev[name]||name;
-   try{eventSource.on(type,()=>{if(scope()!==lastScope){lastScope=scope();autoCounter=0;}updateContext();if(name==='MESSAGE_RECEIVED'||name==='MESSAGE_SENT'){autoCounter++;const s=mem().settings;if(s.autoSave&&autoCounter>=s.autoEvery){autoCounter=0;saveRange(undefined,undefined,true);}}});}catch{}
+   try{eventSource.on(type,()=>{if(scope()!==lastScope){lastScope=scope();autoCounter=0;}updateContext();if(name==='MESSAGE_RECEIVED'||name==='MESSAGE_SENT'){autoCounter++;const s=mem().settings;if(s.autoSave&&autoCounter>=Math.max(10,Number(s.autoEvery)||50)&&!busy){autoCounter=0;saveRange(undefined,undefined,true);}}});}catch{}
  }
 }
 function init(){

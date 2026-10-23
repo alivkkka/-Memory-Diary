@@ -6,7 +6,7 @@ export const CATEGORIES = {
   state:'Состояние сцены', consequence:'Последствие', other:'Другое'
 };
 export const DEFAULTS = {
-  enabled:true, autoSave:false, autoEvery:8, maxAutoMessages:12,
+  enabled:true, autoSave:false, autoEvery:50, maxAutoMessages:50, memoryMode:'balanced', autoBatchVersion:2,
   contextEnabled:true, contextDepth:2, contextLimit:12, autoRecall:true,
   language:'ru', customPrompt:'', includeHiddenManual:true, lastAutoAt:0
 };
@@ -42,7 +42,15 @@ export function normalizeMemory(raw) {
   const mem={...emptyMemory(),...(raw||{})};
   mem.records=Array.isArray(mem.records)?mem.records:[];
   mem.batches=Array.isArray(mem.batches)?mem.batches:[];
-  mem.settings={...clone(DEFAULTS),...(mem.settings||{})};
+  const previousSettings=mem.settings||{};
+  mem.settings={...clone(DEFAULTS),...previousSettings};
+  // One-time migration: replace the old frequent per-message cadence with the user's new 50-message batch workflow.
+  if((Number(previousSettings.autoBatchVersion)||0)<2){
+    mem.settings.autoEvery=50;
+    mem.settings.maxAutoMessages=50;
+    mem.settings.memoryMode='balanced';
+    mem.settings.autoBatchVersion=2;
+  }
   if(!mem.branchId) mem.branchId=uid();
   return mem;
 }
