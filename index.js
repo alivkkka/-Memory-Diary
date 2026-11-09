@@ -42,7 +42,7 @@ function ensurePanel(){
  if($('#mb-panel')){panel=$('#mb-panel');return;}
  panel=document.createElement('section');panel.id='mb-panel';panel.hidden=true;panel.innerHTML=`
  <header class="mb-head"><div class="mb-hero-art" aria-hidden="true"><span class="mb-moon">☾</span><span class="mb-spark">✦</span><span class="mb-flower">❀</span><span class="mb-book">📖</span></div><div class="mb-head-copy"><div class="mb-kicker">✦ ЛИЧНЫЙ АРХИВ ✦</div><h2>MemoryBook</h2><div class="mb-sub">Память. Итоги. Твой персонаж.</div></div><button data-action="close" class="mb-icon" title="Закрыть">×</button></header>
- <nav class="mb-tabs"><button data-tab="memories">💌 Память</button><button data-tab="summary">✧ Сводка</button><button data-tab="settings">🪄 Настройки</button></nav>
+ <nav class="mb-tabs"><button data-tab="summary">Сводка</button><button data-tab="characters">Персонажи</button><button data-tab="relationships">Отношения</button><button data-tab="timeline">Хронология</button><button data-tab="memories">Память</button><button data-tab="history">Журнал</button><button data-tab="settings">Настройки</button></nav>
  <div id="mb-body"></div><footer class="mb-footer"><span id="mb-count"></span><span>♡ Каждая деталь имеет значение</span></footer>`;
  document.body.append(panel);
  panel.addEventListener('click',onClick);
@@ -57,6 +57,10 @@ function render(){
  $('#mb-count',panel).textContent=`${activeRecords(m,chat()).length} активных · ${m.records.filter(r=>!r.deleted).length} всего`;
  if(activeTab==='settings'){body.innerHTML=`<div id="mb-settings">${settingsHtml(m)}</div>`;return;}
  if(activeTab==='summary'){body.innerHTML=summaryHtml(m);return;}
+ if(activeTab==='characters'){body.innerHTML=charactersHtml(m);return;}
+ if(activeTab==='relationships'){body.innerHTML=relationshipsHtml(m);return;}
+ if(activeTab==='timeline'){body.innerHTML=timelineHtml(m);return;}
+ if(activeTab==='history'){body.innerHTML=historyHtml(m);return;}
  const {invalid}=branchCheck(m,chat());
  const records=activeRecords(m,chat()).filter(r=>!search||norm(`${r.title} ${r.content} ${CATEGORIES[r.category]}`).includes(norm(search))).filter(r=>filter==='all'||(filter==='important'&&(r.importance||0)>=4)||(filter==='personal'&&['relationship','preference','secret','quote'].includes(r.category))||(filter==='user'&&(r.sources||[]).some(src=>chat()[src.index]?.is_user)));
  body.innerHTML=`<div class="mb-tools"><input class="mb-search" id="mb-search" placeholder="⌕ Поиск по памяти…" value="${esc(search)}"><div class="mb-filters"><button data-filter="all" class="${filter==='all'?'is-active':''}">Все</button><button data-filter="important" class="${filter==='important'?'is-active':''}">⭐ Важное</button><button data-filter="personal" class="${filter==='personal'?'is-active':''}">♡ Личное</button><button data-filter="user" class="${filter==='user'?'is-active':''}">♙ Пользователь</button></div><div class="mb-range-toolbar"><button data-action="open-range">Обработать диапазон</button><button data-action="save-new">Найти новое</button><button data-action="new-manual" class="mb-primary">＋ Заметка</button></div>${rangeOpen?'<section class="mb-range-box"><div class="mb-range-heading"><strong>Выбери сообщения для архива</strong><span>Всего: '+chat().length+'</span></div><div class="mb-range-fields"><label>С сообщения<input id="mb-start" type="number" inputmode="numeric" min="0" max="'+Math.max(0,chat().length-1)+'" value="'+esc(currentRange.start)+'"></label><label>По сообщение<input id="mb-end" type="number" inputmode="numeric" min="0" max="'+Math.max(0,chat().length-1)+'" value="'+esc(currentRange.end)+'"></label></div><div class="mb-range-actions"><button data-action="save-range" class="mb-primary">Начать обработку</button><button data-action="close-range">Скрыть</button></div><p class="mb-muted">Начало автоматически выставляется после последней успешной обработки. Конец — последнее сообщение чата. Нумерация с 0.</p></section>':''}</div>
@@ -71,12 +75,88 @@ function recordHtml(r){
 }
 function summaryHtml(m){
  const records=activeRecords(m,chat());const important=records.filter(r=>(r.importance||0)>=4);const personal=records.filter(r=>['relationship','preference','secret','quote'].includes(r.category));const plans=records.filter(r=>/план|хочет|мечта|цель|собирается|намерен/i.test(`${r.title} ${r.content}`));const latest=records.slice().sort((a,b)=>(b.updatedAt||b.createdAt||0)-(a.updatedAt||a.createdAt||0))[0];const name=ctx().name2||ctx().characterName||'Твой персонаж';
- return `<section class="mb-summary-hero"><label class="mb-avatar-picker" title="Выбрать изображение"><input id="mb-profile-image" type="file" accept="image/*"><span class="mb-avatar">${m.profileImage?`<img src="${esc(m.profileImage)}" alt="Аватар персонажа">`:esc((name.trim()[0]||'♡').toUpperCase())}</span><small>Изменить фото</small></label><div class="mb-summary-identity"><span class="mb-kicker">ТВОЙ ПЕРСОНАЖ</span><h3>${esc(name)}</h3><p>Всё важное — в одном месте ♡</p><button data-action="remove-avatar" class="mb-remove-avatar" ${m.profileImage?'':'hidden'}>Убрать фото</button></div><button data-action="refresh" class="mb-refresh">⟳</button></section><div class="mb-stats"><div><strong>${records.length}</strong><span>заметок</span></div><div><strong>${important.length}</strong><span>важных</span></div><div><strong>${personal.length}</strong><span>личных</span></div><div><strong>${plans.length}</strong><span>планов</span></div></div><section class="mb-summary-card"><h3>✧ Ключевые моменты</h3>${records.slice().sort((a,b)=>(b.importance||0)-(a.importance||0)).slice(0,5).map(r=>`<p class="mb-keyline"><span>♥</span><span><b>${esc(r.title)}</b><br>${esc(r.content)}</span></p>`).join('')||'<p>Пока нет сохранённых моментов. Добавь заметку или обработай сообщения чата.</p>'}</section><section class="mb-summary-card"><h3>🕯 Последнее обновление</h3>${latest?`<blockquote>${esc(latest.content)}<small>— ${esc(name)} · ${new Date(latest.updatedAt||latest.createdAt||Date.now()).toLocaleDateString()}</small></blockquote>`:'<p>Здесь появится последнее сохранённое воспоминание.</p>'}</section><section class="mb-summary-card"><h3>🪄 Быстрые действия</h3><div class="mb-quick-grid"><button data-action="new-manual">＋<span>Добавить заметку</span></button><button data-action="generate-summary">▤<span>Сгенерировать сводку</span></button><button data-action="import-chat">⇩<span>Импорт из чата</span></button><button data-action="export">⇧<span>Экспорт</span></button><button data-action="clear-memory" class="mb-danger">♲<span>Очистить память</span></button></div></section>`;
+ return `<section class="mb-summary-hero"><label class="mb-avatar-picker" title="Выбрать изображение"><input id="mb-profile-image" type="file" accept="image/*"><span class="mb-avatar">${m.profileImage?`<img src="${esc(m.profileImage)}" alt="Аватар персонажа">`:esc((name.trim()[0]||'♡').toUpperCase())}</span><small>Изменить фото</small></label><div class="mb-summary-identity"><span class="mb-kicker">ТВОЙ ПЕРСОНАЖ</span><h3>${esc(name)}</h3><p>Всё важное — в одном месте ♡</p><button data-action="remove-avatar" class="mb-remove-avatar" ${m.profileImage?'':'hidden'}>Убрать фото</button></div><button data-action="refresh" class="mb-refresh">⟳</button></section><div class="mb-stats"><div><strong>${records.length}</strong><span>заметок</span></div><div><strong>${m.characters.length}</strong><span>персонажей</span></div><div><strong>${m.relationships.length}</strong><span>связей</span></div><div><strong>${m.timeline.length}</strong><span>событий</span></div></div><section class="mb-summary-card"><h3>✧ Ключевые моменты</h3>${records.slice().sort((a,b)=>(b.importance||0)-(a.importance||0)).slice(0,5).map(r=>`<p class="mb-keyline"><span>♥</span><span><b>${esc(r.title)}</b><br>${esc(r.content)}</span></p>`).join('')||'<p>Пока нет сохранённых моментов. Добавь заметку или обработай сообщения чата.</p>'}</section><section class="mb-summary-card"><h3>🕯 Последнее обновление</h3>${latest?`<blockquote>${esc(latest.content)}<small>— ${esc(name)} · ${new Date(latest.updatedAt||latest.createdAt||Date.now()).toLocaleDateString()}</small></blockquote>`:'<p>Здесь появится последнее сохранённое воспоминание.</p>'}</section><section class="mb-summary-card"><h3>🪄 Быстрые действия</h3><div class="mb-quick-grid"><button data-action="new-manual">＋<span>Добавить заметку</span></button><button data-action="generate-summary">▤<span>Сгенерировать сводку</span></button><button data-action="import-chat">⇩<span>Импорт из чата</span></button><button data-action="export">⇧<span>Экспорт</span></button><button data-action="clear-memory" class="mb-danger">♲<span>Очистить память</span></button></div></section>`;
 }
 function historyHtml(m){
  const batches=(m.batches||[]).slice().reverse();
  return `<div class="mb-info">Здесь сохраняется журнал операций. Сам журнал не является источником правды: статус источников сверяется с текущей историей чата.</div>${batches.length?batches.map(b=>`<article class="mb-card"><h3>${esc(b.title||'Сохранение диапазона')}</h3><p>${esc(b.summary||'')}</p><div class="mb-date">${new Date(b.at).toLocaleString()} · сообщения ${b.start}–${b.end} · добавлено ${b.added}</div></article>`).join(''):'<div class="mb-empty">Операций пока нет.</div>'}`;
 }
+
+function sectionHeader(title,description,actions=''){
+ return \`<div class="mb-tools"><div><h3>\${esc(title)}</h3><p class="mb-muted">\${esc(description)}</p></div><div class="mb-range-toolbar">\${actions}</div></div>\`;
+}
+function charactersHtml(m){
+ const rows=m.characters.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'ru'));
+ return sectionHeader('Персонажи','Отдельные профили {{user}}, {{char}} и NPC. Данные сохраняются только в книге этого чата.',\`<button data-action="add-character">＋ Добавить персонажа</button><button data-action="seed-main-characters">Добавить {{user}} и {{char}}</button>\`)
+ + (rows.length?rows.map(c=>\`<article class="mb-card" data-id="\${esc(c.id)}"><div class="mb-tags"><span class="mb-tag">\${esc(({user:'Пользователь',char:'Главный персонаж',npc:'NPC'})[c.role]||'Персонаж')}</span></div><h3>\${esc(c.name)}</h3>\${c.appearance?\`<p><b>Внешность:</b> \${esc(c.appearance)}</p>\`:''}\${c.personality?\`<p><b>Характер:</b> \${esc(c.personality)}</p>\`:''}\${c.background?\`<p><b>История:</b> \${esc(c.background)}</p>\`:''}\${c.currentState?\`<p><b>Состояние:</b> \${esc(c.currentState)}</p>\`:''}\${c.notes?\`<p><b>Заметки:</b> \${esc(c.notes)}</p>\`:''}<div class="mb-row"><button data-action="edit-character" data-id="\${esc(c.id)}">Редактировать профиль</button><button data-action="delete-character" data-id="\${esc(c.id)}" class="mb-danger">Удалить</button></div></article>\`).join(''):'<div class="mb-empty"><strong>Пока нет персонажей</strong><p>Создай профили вручную или добавь {{user}} и {{char}}.</p></div>');
+}
+function relationshipsHtml(m){
+ const names=new Map(m.characters.map(c=>[c.id,c.name]));
+ return sectionHeader('Отношения','Каждая связь принадлежит конкретной паре. Изменения сохраняются в истории самой связи.',\`<button data-action="add-relationship">＋ Добавить связь</button>\`)
+ + (m.relationships.length?m.relationships.map(r=>\`<article class="mb-card" data-id="\${esc(r.id)}"><h3>\${esc(names.get(r.fromId)||'Удалённый персонаж')} ↔ \${esc(names.get(r.toId)||'Удалённый персонаж')}</h3><p>\${esc(r.label||'Связь без названия')}</p><div class="mb-tags"><span class="mb-tag">Доверие \${Number(r.trust)||0}%</span><span class="mb-tag">Привязанность \${Number(r.affection)||0}%</span><span class="mb-tag">Напряжение \${Number(r.tension)||0}%</span><span class="mb-tag">Враждебность \${Number(r.hostility)||0}%</span></div>\${r.notes?\`<p>\${esc(r.notes)}</p>\`:''}<div class="mb-row"><button data-action="edit-relationship" data-id="\${esc(r.id)}">Изменить</button><button data-action="relationship-history" data-id="\${esc(r.id)}">История изменений (\${(r.history||[]).length})</button><button data-action="delete-relationship" data-id="\${esc(r.id)}" class="mb-danger">Удалить</button></div></article>\`).join(''):'<div class="mb-empty"><strong>Связей пока нет</strong><p>Сначала добавь персонажей, затем создай связь между двумя из них.</p></div>');
+}
+function timelineHtml(m){
+ const people=new Map(m.characters.map(c=>[c.id,c.name]));
+ const rows=m.timeline.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))||(b.createdAt||0)-(a.createdAt||0));
+ return sectionHeader('Хронология','События RP в порядке внутриигрового времени. Дата здесь задаётся вручную, а не берётся с телефона.',\`<button data-action="add-event">＋ Добавить событие</button>\`)
+ + (rows.length?rows.map(ev=>\`<article class="mb-card" data-id="\${esc(ev.id)}"><div class="mb-date">\${esc(ev.date||'Дата не указана')}\${ev.place?' · '+esc(ev.place):''}</div><h3>\${esc(ev.title)}</h3><p>\${esc(ev.description)}</p>\${ev.participants?.length?\`<div class="mb-tags">\${ev.participants.map(id=>\`<span class="mb-tag">\${esc(people.get(id)||'Удалённый персонаж')}</span>\`).join('')}</div>\`:''}\${ev.consequences?\`<p><b>Последствия:</b> \${esc(ev.consequences)}</p>\`:''}<div class="mb-row"><button data-action="edit-event" data-id="\${esc(ev.id)}">Редактировать</button><button data-action="delete-event" data-id="\${esc(ev.id)}" class="mb-danger">Удалить</button></div></article>\`).join(''):'<div class="mb-empty"><strong>Хронология пока пуста</strong><p>Добавь важное событие вручную. Позже подключим автоматическое извлечение из сцен.</p></div>');
+}
+function promptField(label,current=''){return prompt(label,current??'');}
+function editCharacter(id=null,role='npc'){
+ const m=mem(),old=id?m.characters.find(x=>x.id===id):null;if(id&&!old)return;
+ const name=promptField('Имя персонажа',old?.name|| (role==='user'?'{{user}}':role==='char'?(ctx().name2||ctx().characterName||'{{char}}'):''));if(name===null||!name.trim())return;
+ const chosenRole=promptField('Роль: user, char или npc',old?.role||role)||role;
+ const appearance=promptField('Внешность',old?.appearance||'');if(appearance===null)return;
+ const personality=promptField('Характер',old?.personality||'');if(personality===null)return;
+ const background=promptField('Биография / история',old?.background||'');if(background===null)return;
+ const currentState=promptField('Текущее состояние',old?.currentState||'');if(currentState===null)return;
+ const notes=promptField('Дополнительные факты и заметки',old?.notes||'');if(notes===null)return;
+ const data={id:old?.id||uid(),name:name.trim(),role:['user','char','npc'].includes(chosenRole.trim())?chosenRole.trim():'npc',appearance,personality,background,currentState,notes,createdAt:old?.createdAt||Date.now(),updatedAt:Date.now()};
+ if(old)Object.assign(old,data);else m.characters.push(data);
+ persist().catch(e=>toast(e.message));
+}
+function addMainCharacters(){
+ const m=mem();
+ for(const [role,name] of [['user','{{user}}'],['char',ctx().name2||ctx().characterName||'{{char}}']]){
+  if(!m.characters.some(c=>c.role===role))m.characters.push({id:uid(),name,role,appearance:'',personality:'',background:'',currentState:'',notes:'',createdAt:Date.now(),updatedAt:Date.now()});
+ }
+ persist().then(()=>toast('Профили {{user}} и {{char}} добавлены.')).catch(e=>toast(e.message));
+}
+function editRelationship(id=null){
+ const m=mem(),old=id?m.relationships.find(x=>x.id===id):null;if(id&&!old)return;
+ if(m.characters.length<2){toast('Для связи нужны хотя бы два профиля персонажей.');return;}
+ const list=m.characters.map(c=>c.id+' — '+c.name).join('\\n');
+ const from=prompt('ID первого персонажа. Список:\\n'+list,old?.fromId||m.characters[0].id);if(from===null)return;
+ const to=prompt('ID второго персонажа. Список:\\n'+list,old?.toId||m.characters.find(c=>c.id!==from)?.id);if(to===null)return;
+ if(from===to||!m.characters.some(c=>c.id===from)||!m.characters.some(c=>c.id===to)){toast('Выбери двух разных существующих персонажей.');return;}
+ const label=promptField('Тип / описание отношений',old?.label||'');if(label===null)return;
+ const metric=(key,title)=>{const n=Number(prompt(title+' (0–100)',String(old?.[key]??0)));return Number.isFinite(n)?Math.max(0,Math.min(100,n)):Number(old?.[key])||0;};
+ const trust=metric('trust','Доверие'),affection=metric('affection','Привязанность'),tension=metric('tension','Напряжение'),hostility=metric('hostility','Враждебность');
+ const notes=promptField('Примечания',old?.notes||'');if(notes===null)return;
+ const data={id:old?.id||uid(),fromId:from,toId:to,label,trust,affection,tension,hostility,notes,history:old?.history||[],createdAt:old?.createdAt||Date.now(),updatedAt:Date.now()};
+ if(old){const changed=['label','trust','affection','tension','hostility','notes'].some(k=>old[k]!==data[k]);if(changed)data.history.push({at:Date.now(),summary:'Обновлены параметры отношений',before:{label:old.label,trust:old.trust,affection:old.affection,tension:old.tension,hostility:old.hostility},after:{label,trust,affection,tension,hostility}});Object.assign(old,data);}
+ else{data.history.push({at:Date.now(),summary:'Связь создана'});m.relationships.push(data);}
+ persist().catch(e=>toast(e.message));
+}
+function showRelationshipHistory(id){
+ const r=mem().relationships.find(x=>x.id===id);if(!r)return;
+ const lines=(r.history||[]).map(h=>new Date(h.at).toLocaleString()+' — '+h.summary).join('\\n');
+ alert(lines||'История изменений пока пуста.');
+}
+function editTimelineEvent(id=null){
+ const m=mem(),old=id?m.timeline.find(x=>x.id===id):null;if(id&&!old)return;
+ const title=promptField('Название события',old?.title||'');if(title===null||!title.trim())return;
+ const description=promptField('Что произошло?',old?.description||'');if(description===null)return;
+ const date=promptField('Дата / период внутри RP (например: 14 декабря, вечер)',old?.date||'');if(date===null)return;
+ const place=promptField('Место',old?.place||'');if(place===null)return;
+ const participantText=promptField('ID участников через запятую. Профили:\\n'+m.characters.map(c=>c.id+' — '+c.name).join('\\n'),(old?.participants||[]).join(','));if(participantText===null)return;
+ const participants=participantText.split(',').map(x=>x.trim()).filter(id=>m.characters.some(c=>c.id===id));
+ const consequences=promptField('Последствия события',old?.consequences||'');if(consequences===null)return;
+ const data={id:old?.id||uid(),title:title.trim(),description,date,place,participants,consequences,createdAt:old?.createdAt||Date.now(),updatedAt:Date.now()};
+ if(old)Object.assign(old,data);else m.timeline.push(data);
+ persist().catch(e=>toast(e.message));
+}
+
 function settingsHtml(m){
  const s=m.settings;
  return `<div class="mb-card"><h3>Автоматическое сохранение</h3><label class="mb-check"><input type="checkbox" id="mb-auto" ${s.autoSave?'checked':''}> Автоматически архивировать новые сообщения</label><label>Запускать обработку после N новых сообщений<input type="number" id="mb-every" min="10" max="500" step="5" value="${s.autoEvery}"></label><label>Размер пачки для анализа<input type="number" id="mb-max" min="10" max="200" step="5" value="${s.maxAutoMessages}"></label><label>Строгость отбора воспоминаний<select id="mb-memory-mode"><option value="strict" ${s.memoryMode==='strict'?'selected':''}>Только самое важное</option><option value="balanced" ${s.memoryMode==='balanced'?'selected':''}>Сбалансированно</option><option value="detailed" ${s.memoryMode==='detailed'?'selected':''}>Подробно</option></select></label><p class="mb-muted">После накопления ${s.autoEvery} новых сообщений дневник анализирует пачку целиком. Он может создать несколько записей или не сохранить ничего, если в переписке нет значимых событий. Кнопка «Найти новое» позволяет запускать обработку вручную.</p></div>
@@ -122,6 +202,17 @@ async function onClick(e){
   if(action==='clear-memory'){if(!confirm('Удалить все воспоминания именно из этого чата? Это действие нельзя отменить.'))return;m.records=[];m.batches=[];await persist();toast('Память этого чата очищена.');return;}
   if(action==='new-manual'){openWithManual();return;}
   if(action==='save-settings'){saveSettingsFromUI();await persist();toast('Настройки сохранены.');return;}
+  if(action==='add-character'){editCharacter();return;}
+  if(action==='seed-main-characters'){addMainCharacters();return;}
+  if(action==='edit-character'){editCharacter(id);return;}
+  if(action==='delete-character'){const c=m.characters.find(x=>x.id===id);if(!c)return;if(!confirm('Удалить профиль '+c.name+'? Связи и события останутся, но будут показывать удалённого персонажа.'))return;m.characters=m.characters.filter(x=>x.id!==id);await persist();return;}
+  if(action==='add-relationship'){editRelationship();return;}
+  if(action==='edit-relationship'){editRelationship(id);return;}
+  if(action==='relationship-history'){showRelationshipHistory(id);return;}
+  if(action==='delete-relationship'){if(!confirm('Удалить эту связь и её историю?'))return;m.relationships=m.relationships.filter(x=>x.id!==id);await persist();return;}
+  if(action==='add-event'){editTimelineEvent();return;}
+  if(action==='edit-event'){editTimelineEvent(id);return;}
+  if(action==='delete-event'){if(!confirm('Удалить это событие из хронологии?'))return;m.timeline=m.timeline.filter(x=>x.id!==id);await persist();return;}
   if(action==='edit'){editRecord(id);return;}
   if(action==='pin'){const r=m.records.find(x=>x.id===id);if(r)r.pinned=!r.pinned;await persist();return;}
   if(action==='manualize'){const r=m.records.find(x=>x.id===id);if(r){r.manual=true;r.sources=[];r.updatedAt=Date.now();}await persist();return;}
