@@ -6,7 +6,7 @@ import { extract } from './api.js';
 const ctx=()=>{ try{return getContext?.()||globalThis.SillyTavern?.getContext?.()||{};}catch{return {};} };
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let panel=null, activeTab='memories', busy=false, autoCounter=0, lastScope='', search='', filter='all', currentRange={start:'',end:''}, aborter=null;
+let panel=null, activeTab='memories', busy=false, autoCounter=0, lastScope='', search='', filter='all', currentRange={start:'',end:''}, rangeOpen=false, aborter=null;
 let memoryCache=null, memoryCacheScope='', databasePromise=null;
 const scope=()=>{const c=ctx();return `${c.groupId||'solo'}:${c.characterId??''}:${c.getCurrentChatId?.()??c.chatId??''}`;};
 function chat(){return ctx().chat||[];}
@@ -59,7 +59,7 @@ function render(){
  if(activeTab==='summary'){body.innerHTML=summaryHtml(m);return;}
  const {invalid}=branchCheck(m,chat());
  const records=activeRecords(m,chat()).filter(r=>!search||norm(`${r.title} ${r.content} ${CATEGORIES[r.category]}`).includes(norm(search))).filter(r=>filter==='all'||(filter==='important'&&(r.importance||0)>=4)||(filter==='personal'&&['relationship','preference','secret','quote'].includes(r.category))||(filter==='user'&&(r.sources||[]).some(src=>chat()[src.index]?.is_user)));
- body.innerHTML=`<div class="mb-tools"><input class="mb-search" id="mb-search" placeholder="⌕ Поиск по памяти…" value="${esc(search)}"><div class="mb-filters"><button data-filter="all" class="${filter==='all'?'is-active':''}">Все</button><button data-filter="important" class="${filter==='important'?'is-active':''}">⭐ Важное</button><button data-filter="personal" class="${filter==='personal'?'is-active':''}">♡ Личное</button><button data-filter="user" class="${filter==='user'?'is-active':''}">♙ Пользователь</button></div><section class="mb-range-box"><div class="mb-range-heading"><strong>Обработать сообщения</strong><span>Всего: ${chat().length}</span></div><div class="mb-range-fields"><label>С сообщения<input id="mb-start" type="number" inputmode="numeric" min="0" max="${Math.max(0,chat().length-1)}" value="${esc(currentRange.start!==''?currentRange.start:0)}"></label><label>По сообщение<input id="mb-end" type="number" inputmode="numeric" min="0" max="${Math.max(0,chat().length-1)}" value="${esc(currentRange.end!==''?currentRange.end:Math.max(0,chat().length-1))}"></label></div><div class="mb-range-actions"><button data-action="save-range">Обработать диапазон</button><button data-action="save-new">Найти новое</button><button data-action="new-manual" class="mb-primary">＋ Заметка</button></div><p class="mb-muted">Нумерация с 0. Например, весь чат: 0 — ${Math.max(0,chat().length-1)}.</p></section></div>
+ body.innerHTML=`<div class="mb-tools"><input class="mb-search" id="mb-search" placeholder="⌕ Поиск по памяти…" value="${esc(search)}"><div class="mb-filters"><button data-filter="all" class="${filter==='all'?'is-active':''}">Все</button><button data-filter="important" class="${filter==='important'?'is-active':''}">⭐ Важное</button><button data-filter="personal" class="${filter==='personal'?'is-active':''}">♡ Личное</button><button data-filter="user" class="${filter==='user'?'is-active':''}">♙ Пользователь</button></div><div class="mb-range-toolbar"><button data-action="open-range">Обработать диапазон</button><button data-action="save-new">Найти новое</button><button data-action="new-manual" class="mb-primary">＋ Заметка</button></div>${rangeOpen?'<section class="mb-range-box"><div class="mb-range-heading"><strong>Выбери сообщения для архива</strong><span>Всего: '+chat().length+'</span></div><div class="mb-range-fields"><label>С сообщения<input id="mb-start" type="number" inputmode="numeric" min="0" max="'+Math.max(0,chat().length-1)+'" value="'+esc(currentRange.start)+'"></label><label>По сообщение<input id="mb-end" type="number" inputmode="numeric" min="0" max="'+Math.max(0,chat().length-1)+'" value="'+esc(currentRange.end)+'"></label></div><div class="mb-range-actions"><button data-action="save-range" class="mb-primary">Начать обработку</button><button data-action="close-range">Скрыть</button></div><p class="mb-muted">Начало автоматически выставляется после последней успешной обработки. Конец — последнее сообщение чата. Нумерация с 0.</p></section>':''}</div>
  ${busy?`<div class="mb-processing"><span class="mb-spinner"></span><div><strong>Идёт обработка сообщений…</strong><small>Не закрывай MemoryBook. Результат появится здесь.</small></div><button data-action="cancel-processing">Отмена</button></div>`:'' }${invalid.length?`<div class="mb-info mb-warn">⚠️ Найдены устаревшие записи: ${invalid.length}. Проверь источники перед использованием в контексте.</div>`:''}
  ${invalid.length?`<div class="mb-card mb-warn"><h3>⚠️ Записи с устаревшими источниками</h3><p>Они не попадут в контекст автоматически. Проверь их и при необходимости сохрани как ручные, либо удали.</p><button data-action="mark-stale-manual">Сделать устаревшие ручными</button><button data-action="delete-stale" class="mb-danger">Удалить устаревшие</button></div>`:''}
  ${records.length?records.slice().reverse().map(recordHtml).join(''):`<div class="mb-empty"><span>🌙</span><strong>Пока нет воспоминаний</strong><p>Выбери диапазон сообщений или включи автоматическое сохранение в настройках.</p></div>`}`;
@@ -111,6 +111,8 @@ async function onClick(e){
  const action=b.dataset.action,id=b.dataset.id,m=mem();
  try{
   if(action==='close'){close();return;}
+  if(action==='open-range'){const m=mem(),c=captureChat();const next=Math.min(Math.max(0,c.length-1),lastProcessedIndex(m)+1);currentRange={start:String(next),end:String(Math.max(0,c.length-1))};rangeOpen=true;render();return;}
+  if(action==='close-range'){rangeOpen=false;render();return;}
   if(action==='save-range'){await saveRange();return;}
   if(action==='save-new'||action==='import-chat'){await saveNew();return;}
   if(action==='cancel-processing'){aborter?.abort();toast('Останавливаю обработку…');return;}
@@ -152,6 +154,10 @@ function editRecord(id){
 }
 function snapshot(m,i){return {...source(m,i),text:m.mes,name:m.name||'',is_user:!!m.is_user,is_hidden:hidden(m)};}
 function captureChat(){const c=chat();if(ensureIds(c)){try{ctx().saveChat?.();}catch{}}return c;}
+function lastProcessedIndex(m=mem()){
+ if(Number.isInteger(m.lastProcessedIndex))return m.lastProcessedIndex;
+ return Math.max(-1,...m.records.flatMap(r=>(r.sources||[]).map(s=>Number(s.index)).filter(Number.isInteger)));
+}
 async function saveRange(startOverride,endOverride,automatic=false){
  if(busy)return toast('Подожди, предыдущая операция ещё выполняется.');
  const c=ctx(), list=captureChat();if(!list.length)return toast('В этом чате пока нет сообщений.');
@@ -173,13 +179,14 @@ async function saveRange(startOverride,endOverride,automatic=false){
    const parsed=validateExtraction(raw,selected.map(m=>({name:m.name,is_user:m.is_user,mes:m.mes,extra:{memoryBookId:m.extra?.memoryBookId,memoryBookIndex:m._mbIndex}})));
    const m=mem();let added=0,merged=0;
    for(const r of parsed.records){const result=mergeRecord(m,r);result.merged?merged++:added++;}
+   m.lastProcessedIndex=Math.max(lastProcessedIndex(m),end);
    m.batches.push({id:uid(),at:Date.now(),title:automatic?'Автоматическая обработка пачки':'Сохранение диапазона',start,end,added:added+merged,summary:parsed.summary,automatic:!!automatic});
    m.batches=m.batches.slice(-100);m.revision=(m.revision||0)+1;
-   await persist();toast(`Готово: ${added} новых, ${merged} объединено.`);
+   await persist();rangeOpen=false;toast(`Готово: ${added} новых, ${merged} объединено. Обработано до сообщения №${end}.`);
  }catch(err){if(err.name!=='AbortError')toast(`Не удалось сохранить: ${err.message||err}`);}
  finally{busy=false;aborter=null;render();}
 }
-async function saveNew(){const c=captureChat(),m=mem();if(!c.length){toast('В этом чате пока нет сообщений.');return;}const valid=activeRecords(m,c);const maxSource=Math.max(-1,...valid.flatMap(r=>(r.sources||[]).map(s=>Number(s.index)).filter(Number.isInteger)));const start=Math.max(0,maxSource+1),end=c.length-1;if(start>end){toast('Новых сообщений для архива нет.');return;}currentRange={start:String(start),end:String(end)};render();await saveRange(start,end,false);}
+async function saveNew(){const c=captureChat(),m=mem();if(!c.length){toast('В этом чате пока нет сообщений.');return;}const start=Math.max(0,lastProcessedIndex(m)+1),end=c.length-1;if(start>end){toast('Новых сообщений для архива нет.');return;}currentRange={start:String(start),end:String(end)};await saveRange(start,end,false);}
 function editNewRecord(){
  const title=prompt('Заголовок нового воспоминания');if(title===null||!title.trim())return;
  const content=prompt('Что нужно запомнить?');if(content===null||!content.trim())return;
