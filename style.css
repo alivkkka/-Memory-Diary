@@ -328,3 +328,7 @@
 .mb-quick-grid{gap:6px!important}.mb-quick-grid button{min-height:55px!important;border-radius:13px!important;font-size:17px!important}.mb-quick-grid button span{font-size:9px!important}
 #mb-toast{padding:10px 13px!important;border-radius:13px!important;font-size:11px!important}
 @media(max-width:600px){#mb-panel{width:min(94vw,420px)!important;max-width:min(94vw,420px)!important;height:90dvh!important;max-height:90dvh!important;top:5dvh!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;border-radius:20px!important}.mb-head{min-height:70px!important;padding:10px 44px 9px 11px!important}.mb-head:before{flex-basis:36px!important;width:36px!important;height:36px!important;font-size:19px!important}.mb-head h2{font-size:20px!important}.mb-tabs button{font-size:10px!important;padding:6px 7px!important}.mb-range-actions button{flex-basis:30%!important}.mb-summary-hero{gap:7px!important}.mb-avatar-picker{flex-basis:56px!important}.mb-avatar{width:48px!important;height:48px!important;flex-basis:48px!important}}
+
+
+/* 0.2.2 — keep manual range controls collapsed until explicitly requested. */
+.mb-range-toolbar{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.mb-range-toolbar button{flex:1 1 28%;min-width:0;white-space:normal;font-size:10px!important;line-height:1.25}.mb-range-box{margin-top:8px}
