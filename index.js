@@ -90,6 +90,7 @@ function onChange(e){
  if(e.target.id==='mb-profile-image'){const file=e.target.files?.[0];if(file)saveProfileImage(file);}
 }
 async function saveProfileImage(file){
+ const imageScope=scope();
  if(!file.type?.startsWith('image/')){toast('Выбери файл изображения.');return;}
  if(file.size>15*1024*1024){toast('Изображение слишком большое. Выбери фото до 15 МБ.');return;}
  try{
@@ -99,6 +100,7 @@ async function saveProfileImage(file){
    const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
    canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();dataUrl=canvas.toDataURL('image/jpeg',0.84);
   }else{dataUrl=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(file);});}
+  if(scope()!==imageScope)throw Error('Чат сменился во время загрузки. Повтори выбор изображения в нужном чате.');
   mem().profileImage=dataUrl;await persist();toast('Изображение персонажа сохранено для этого чата.');
  }catch(error){toast(`Не удалось сохранить изображение: ${error.message||error}`);}
 }
