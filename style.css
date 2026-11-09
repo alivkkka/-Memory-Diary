@@ -338,102 +338,59 @@
 .mb-tabs button{flex:0 1 auto}
 @media(max-width:600px){.mb-tabs{justify-content:center}.mb-tabs button{flex:1 1 auto}}
 
-
-/* Typography/layout safety override: keep text readable inside SillyTavern. */
+/* 0.2.6 — restore normal horizontal text flow; avoid character-by-character wrapping. */
 #mb-panel,
 #mb-panel * {
-  box-sizing: border-box !important;
   writing-mode: horizontal-tb !important;
   text-orientation: mixed !important;
   word-break: normal !important;
-  overflow-wrap: anywhere !important;
-  min-width: 0;
+  overflow-wrap: normal !important;
 }
 #mb-panel {
+  box-sizing: border-box !important;
   font-family: var(--mainFontFamily, system-ui, sans-serif) !important;
-  font-size: 14px !important;
-  line-height: 1.5 !important;
   letter-spacing: normal !important;
 }
-#mb-panel :is(h1,h2,h3,h4,p,span,strong,b,small,label,button,a,li,blockquote,div) {
-  line-height: 1.45 !important;
-  text-indent: 0 !important;
-  text-transform: none;
-}
-#mb-panel :is(h2,h3,p,span,strong,b,small,label,button,a,li,blockquote) {
-  max-width: 100%;
-  white-space: normal;
-}
-#mb-panel .mb-head,
 #mb-panel .mb-head-copy,
 #mb-panel .mb-record-main,
-#mb-panel .mb-card,
-#mb-panel .mb-summary-hero,
-#mb-panel .mb-summary-card,
-#mb-panel .mb-range,
-#mb-panel .mb-info,
-#mb-panel .mb-row,
-#mb-panel .mb-tabs {
+#mb-panel #mb-settings,
+#mb-panel .mb-summary-identity {
   min-width: 0 !important;
-  max-width: 100% !important;
-}
-#mb-panel .mb-card {
-  align-items: start;
+  width: 100%;
 }
 #mb-panel .mb-card h3,
 #mb-panel .mb-card p,
 #mb-panel .mb-summary-card p,
 #mb-panel .mb-info,
 #mb-panel .mb-empty {
-  overflow-wrap: anywhere !important;
   word-break: normal !important;
-  white-space: pre-wrap;
+  overflow-wrap: break-word !important;
 }
 #mb-panel .mb-tabs {
+  display: flex !important;
   flex-wrap: wrap !important;
-  overflow: visible !important;
   white-space: normal !important;
+  overflow: visible !important;
 }
 #mb-panel .mb-tabs button {
-  flex: 0 1 auto !important;
-  min-width: max-content !important;
   white-space: normal !important;
-  line-height: 1.25 !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  line-height: 1.3 !important;
 }
-#mb-panel input,
-#mb-panel select,
-#mb-panel textarea,
-#mb-panel button {
-  font-family: inherit !important;
+#mb-panel :is(h1,h2,h3,h4,p,label,button,input,select,textarea) {
   letter-spacing: normal !important;
   text-indent: 0 !important;
 }
-#mb-panel input,
-#mb-panel select,
-#mb-panel textarea {
-  line-height: 1.4 !important;
-}
 @media (max-width: 600px) {
   #mb-panel .mb-tabs {
-    display: flex !important;
-    justify-content: flex-start !important;
     gap: 5px !important;
-    padding: 8px 10px !important;
+    justify-content: flex-start !important;
   }
   #mb-panel .mb-tabs button {
     flex: 1 1 calc(33.333% - 5px) !important;
     min-width: 0 !important;
     padding: 8px 5px !important;
     font-size: 11px !important;
-  }
-  #mb-panel .mb-card {
-    grid-template-columns: 34px minmax(0, 1fr) !important;
-  }
-  #mb-panel .mb-record-main {
-    width: 100% !important;
-    min-width: 0 !important;
-  }
-  #mb-panel .mb-row {
-    flex-wrap: wrap !important;
   }
 }
