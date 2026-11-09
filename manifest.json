@@ -1,12 +1,12 @@
 {
-  "display_name": "Memory Diary · Дневник памяти",
+  "display_name": "MemoryBook — Long-Term RP Memory",
   "loading_order": 60,
   "requires": [],
   "optional": [],
   "js": "index.js",
   "css": "style.css",
-  "author": "Memory Diary",
-  "version": "0.1.12",
-  "homePage": "",
+  "author": "alivkkka",
+  "version": "0.2.0",
+  "homePage": "https://github.com/alivkkka/-Memory-Diary",
   "auto_update": false
 }
