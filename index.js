@@ -125,10 +125,12 @@ function addMainCharacters(){
 function editRelationship(id=null){
  const m=mem(),old=id?m.relationships.find(x=>x.id===id):null;if(id&&!old)return;
  if(m.characters.length<2){toast('Для связи нужны хотя бы два профиля персонажей.');return;}
- const list=m.characters.map(c=>c.id+' — '+c.name).join('\\n');
- const from=prompt('ID первого персонажа. Список:\\n'+list,old?.fromId||m.characters[0].id);if(from===null)return;
- const to=prompt('ID второго персонажа. Список:\\n'+list,old?.toId||m.characters.find(c=>c.id!==from)?.id);if(to===null)return;
- if(from===to||!m.characters.some(c=>c.id===from)||!m.characters.some(c=>c.id===to)){toast('Выбери двух разных существующих персонажей.');return;}
+ const list=m.characters.map((c,i)=>`${i+1}. ${c.name} [${c.role}]`).join('\\n');
+ const oldFrom=Math.max(0,m.characters.findIndex(c=>c.id===old?.fromId)), oldTo=Math.max(0,m.characters.findIndex(c=>c.id===old?.toId));
+ const fromIndex=Number(prompt('Выбери первого персонажа по номеру:\\n'+list,String(old?oldFrom+1:1)))-1;if(!Number.isInteger(fromIndex)||!m.characters[fromIndex])return;
+ const toIndex=Number(prompt('Выбери второго персонажа по номеру:\\n'+list,String(old?oldTo+1:(fromIndex===0?2:1))))-1;if(!Number.isInteger(toIndex)||!m.characters[toIndex])return;
+ const from=m.characters[fromIndex].id,to=m.characters[toIndex].id;
+ if(from===to){toast('Нельзя создать связь персонажа с самим собой.');return;}
  const label=promptField('Тип / описание отношений',old?.label||'');if(label===null)return;
  const metric=(key,title)=>{const n=Number(prompt(title+' (0–100)',String(old?.[key]??0)));return Number.isFinite(n)?Math.max(0,Math.min(100,n)):Number(old?.[key])||0;};
  const trust=metric('trust','Доверие'),affection=metric('affection','Привязанность'),tension=metric('tension','Напряжение'),hostility=metric('hostility','Враждебность');
@@ -149,8 +151,9 @@ function editTimelineEvent(id=null){
  const description=promptField('Что произошло?',old?.description||'');if(description===null)return;
  const date=promptField('Дата / период внутри RP (например: 14 декабря, вечер)',old?.date||'');if(date===null)return;
  const place=promptField('Место',old?.place||'');if(place===null)return;
- const participantText=promptField('ID участников через запятую. Профили:\\n'+m.characters.map(c=>c.id+' — '+c.name).join('\\n'),(old?.participants||[]).join(','));if(participantText===null)return;
- const participants=participantText.split(',').map(x=>x.trim()).filter(id=>m.characters.some(c=>c.id===id));
+ const participantList=m.characters.map((c,i)=>`${i+1}. ${c.name}`).join('\\n');
+ const selectedText=promptField('Номера участников через запятую:\\n'+participantList,(old?.participants||[]).map(id=>m.characters.findIndex(c=>c.id===id)+1).filter(n=>n>0).join(','));if(selectedText===null)return;
+ const participants=[...new Set(selectedText.split(',').map(x=>Number(x.trim())-1).filter(i=>Number.isInteger(i)&&m.characters[i]).map(i=>m.characters[i].id))];
  const consequences=promptField('Последствия события',old?.consequences||'');if(consequences===null)return;
  const data={id:old?.id||uid(),title:title.trim(),description,date,place,participants,consequences,createdAt:old?.createdAt||Date.now(),updatedAt:Date.now()};
  if(old)Object.assign(old,data);else m.timeline.push(data);
@@ -161,7 +164,8 @@ function settingsHtml(m){
  const s=m.settings;
  return `<div class="mb-card"><h3>Автоматическое сохранение</h3><label class="mb-check"><input type="checkbox" id="mb-auto" ${s.autoSave?'checked':''}> Автоматически архивировать новые сообщения</label><label>Запускать обработку после N новых сообщений<input type="number" id="mb-every" min="10" max="500" step="5" value="${s.autoEvery}"></label><label>Размер пачки для анализа<input type="number" id="mb-max" min="10" max="200" step="5" value="${s.maxAutoMessages}"></label><label>Строгость отбора воспоминаний<select id="mb-memory-mode"><option value="strict" ${s.memoryMode==='strict'?'selected':''}>Только самое важное</option><option value="balanced" ${s.memoryMode==='balanced'?'selected':''}>Сбалансированно</option><option value="detailed" ${s.memoryMode==='detailed'?'selected':''}>Подробно</option></select></label><p class="mb-muted">После накопления ${s.autoEvery} новых сообщений дневник анализирует пачку целиком. Он может создать несколько записей или не сохранить ничего, если в переписке нет значимых событий. Кнопка «Найти новое» позволяет запускать обработку вручную.</p></div>
  <div class="mb-card"><h3>Контекст модели</h3><label class="mb-check"><input type="checkbox" id="mb-context" ${s.contextEnabled?'checked':''}> Добавлять выбранные воспоминания в контекст РП</label><label>Глубина контекста (слои)<input type="number" id="mb-depth" min="0" max="4" value="${s.contextDepth}"></label><label>Максимум записей за ответ<input type="number" id="mb-limit" min="1" max="30" value="${s.contextLimit}"></label><label class="mb-check"><input type="checkbox" id="mb-recall" ${s.autoRecall?'checked':''}> Автоматически подбирать релевантные воспоминания</label></div>
- <div class="mb-card"><h3>Инструкции архивариусу</h3><textarea id="mb-prompt" placeholder="Дополнительные правила извлечения…">${esc(s.customPrompt||'')}</textarea><div class="mb-row"><button data-action="save-settings" class="mb-primary">Сохранить настройки</button><button data-action="export">Экспорт памяти</button><button data-action="import">Импорт памяти</button><button data-action="reset">Сбросить настройки</button></div></div>`;
+ <div class="mb-card"><h3>Подключение архивариуса</h3><label>Источник модели<select id="mb-api-mode"><option value="st" ${s.apiMode!=='separate'?'selected':''}>Текущее подключение SillyTavern</option><option value="separate" ${s.apiMode==='separate'?'selected':''}>Собственный OpenAI-совместимый API</option></select></label><label>API URL<input id="mb-api-url" type="url" placeholder="https://api.example.com/v1" value="${esc(s.apiUrl||'')}"></label><label>Модель<input id="mb-api-model" type="text" placeholder="Название модели" value="${esc(s.apiModel||'')}"></label><label>API-ключ<input id="mb-api-key" type="password" autocomplete="off" placeholder="Оставь пустым, если ключ не нужен" value="${esc(s.apiKey||'')}"></label><p class="mb-muted">Ключ хранится только в локальных настройках этого чата и не включается в экспорт. Для работы через SillyTavern оставь первое подключение.</p></div>
+ <div class="mb-card"><h3>Инструкции архивариусу</h3><textarea id="mb-prompt" placeholder="Дополнительные правила извлечения…">${esc(s.customPrompt||'')}</textarea><div class="mb-row"><button data-action="save-settings" class="mb-primary">Сохранить настройки</button><button data-action="test-api">Проверить подключение</button><button data-action="export">Экспорт памяти</button><button data-action="import">Импорт памяти</button><button data-action="reset">Сбросить настройки</button></div></div>`;
 }
 function onChange(e){
  if(e.target.id==='mb-search'){search=e.target.value;const pos=e.target.selectionStart;render();const el=$('#mb-search');el?.focus();el?.setSelectionRange(pos,pos);}
@@ -202,6 +206,7 @@ async function onClick(e){
   if(action==='clear-memory'){if(!confirm('Удалить все воспоминания именно из этого чата? Это действие нельзя отменить.'))return;m.records=[];m.batches=[];await persist();toast('Память этого чата очищена.');return;}
   if(action==='new-manual'){openWithManual();return;}
   if(action==='save-settings'){saveSettingsFromUI();await persist();toast('Настройки сохранены.');return;}
+  if(action==='test-api'){saveSettingsFromUI();await persist();toast('Проверяю подключение…');const testMessages=[{name:'Проверка',is_user:true,mes:'Это тестовое сообщение. Не сохраняй факты; верни memories: [].'}];const result=await extract(testMessages,mem().settings,ctx(),new AbortController().signal);if(!result||!Array.isArray(result.memories))throw Error('Ответ модели имеет неверный формат.');toast('Подключение работает: модель вернула корректный ответ.');return;}
   if(action==='add-character'){editCharacter();return;}
   if(action==='seed-main-characters'){addMainCharacters();return;}
   if(action==='edit-character'){editCharacter(id);return;}
@@ -232,7 +237,7 @@ function saveSettingsFromUI(){
  s.memoryMode=['strict','balanced','detailed'].includes($('#mb-memory-mode').value)?$('#mb-memory-mode').value:'balanced';s.autoBatchVersion=2;
  s.contextEnabled=$('#mb-context').checked;s.contextDepth=clampNum($('#mb-depth').value,0,4,2);
  s.contextLimit=clampNum($('#mb-limit').value,1,30,12);s.autoRecall=$('#mb-recall').checked;
- s.customPrompt=$('#mb-prompt').value.trim();
+ s.customPrompt=$('#mb-prompt').value.trim();s.apiMode=$('#mb-api-mode').value==='separate'?'separate':'st';s.apiUrl=$('#mb-api-url').value.trim();s.apiModel=$('#mb-api-model').value.trim();s.apiKey=$('#mb-api-key').value.trim();
 }
 function clampNum(v,min,max,def){const n=Number(v);return Number.isFinite(n)?Math.max(min,Math.min(max,n)):def;}
 function editRecord(id){
