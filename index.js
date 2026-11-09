@@ -170,22 +170,35 @@ async function saveRange(startOverride,endOverride,automatic=false){
  if(automatic)selected=selected.filter(m=>eligible(m)&&!hidden(m));
  else selected=selected.filter(m=>eligible(m)&&(!hidden(m)||mem().settings.includeHiddenManual));
  if(!selected.length){toast('В диапазоне нет подходящих сообщений.');return;}
- const scopeAt=scope(), snapshots=selected.map(m=>snapshot(m,m._mbIndex));
- busy=true;aborter=new AbortController();render();toast(`Архивирую ${selected.length} сообщений…`);
+ const scopeAt=scope(), chunkSize=8;
+ busy=true;aborter=new AbortController();render();
+ let totalAdded=0,totalMerged=0,completed=0;
  try{
-   const raw=await extract(selected.map(m=>({name:m.name,is_user:m.is_user,mes:m.mes,is_hidden:hidden(m)})),mem().settings,c,aborter.signal);
-   if(scope()!==scopeAt)throw Error('Чат переключился во время анализа; результат не применён.');
-   const now=chat();
-   for(const s of snapshots){const current=now.find(m=>m.extra?.memoryBookId===s.id);if(!current||fingerprint(current)!==s.hash)throw Error('История изменилась во время анализа. Ничего не сохранено — запусти операцию заново.');}
-   const parsed=validateExtraction(raw,selected.map(m=>({name:m.name,is_user:m.is_user,mes:m.mes,extra:{memoryBookId:m.extra?.memoryBookId,memoryBookIndex:m._mbIndex}})));
-   const m=mem();let added=0,merged=0;
-   for(const r of parsed.records){const result=mergeRecord(m,r);result.merged?merged++:added++;}
-   m.lastProcessedIndex=Math.max(lastProcessedIndex(m,list),end);m.lastProcessedMessageId=list[end]?.extra?.memoryBookId||m.lastProcessedMessageId||null;
-   m.batches.push({id:uid(),at:Date.now(),title:automatic?'Автоматическая обработка пачки':'Сохранение диапазона',start,end,added:added+merged,summary:parsed.summary,automatic:!!automatic});
-   m.batches=m.batches.slice(-100);m.revision=(m.revision||0)+1;
-   await persist();rangeOpen=false;toast(`Готово: ${added} новых, ${merged} объединено. Обработано до сообщения №${end}.`);
- }catch(err){if(err.name!=='AbortError')toast(`Не удалось сохранить: ${err.message||err}`);}
- finally{busy=false;aborter=null;render();}
+   for(let offset=0;offset<selected.length;offset+=chunkSize){
+     if(aborter.signal.aborted)throw new DOMException('Операция отменена.','AbortError');
+     const chunk=selected.slice(offset,offset+chunkSize);
+     const first=chunk[0]._mbIndex,last=chunk[chunk.length-1]._mbIndex;
+     const snapshots=chunk.map(m=>snapshot(m,m._mbIndex));
+     toast(`Архивирую сообщения ${first}–${last} (${Math.min(offset+chunk.length,selected.length)} из ${selected.length})…`);
+     const raw=await extract(chunk.map(m=>({name:m.name,is_user:m.is_user,mes:m.mes,is_hidden:hidden(m)})),mem().settings,c,aborter.signal);
+     if(scope()!==scopeAt)throw Error('Чат переключился во время анализа; результат этой пачки не применён.');
+     const now=chat();
+     for(const snap of snapshots){const current=now.find(m=>m.extra?.memoryBookId===snap.id);if(!current||fingerprint(current)!==snap.hash)throw Error('История изменилась во время анализа. Последняя пачка не сохранена — запусти её заново.');}
+     const parsed=validateExtraction(raw,chunk.map(m=>({name:m.name,is_user:m.is_user,mes:m.mes,extra:{memoryBookId:m.extra?.memoryBookId,memoryBookIndex:m._mbIndex}})));
+     const m=mem();let added=0,merged=0;
+     for(const r of parsed.records){const result=mergeRecord(m,r);result.merged?merged++:added++;}
+     m.lastProcessedIndex=Math.max(lastProcessedIndex(m,list),last);
+     m.lastProcessedMessageId=list[last]?.extra?.memoryBookId||m.lastProcessedMessageId||null;
+     m.batches.push({id:uid(),at:Date.now(),title:automatic?'Автоматическая обработка пачки':'Сохранение диапазона',start:first,end:last,added:added+merged,summary:parsed.summary,automatic:!!automatic});
+     m.batches=m.batches.slice(-100);m.revision=(m.revision||0)+1;
+     await persist();
+     totalAdded+=added;totalMerged+=merged;completed+=chunk.length;
+   }
+   rangeOpen=false;toast(`Готово: ${totalAdded} новых, ${totalMerged} объединено. Обработано ${completed} сообщений до №${end}.`);
+ }catch(err){
+   if(err.name!=='AbortError')toast(`Не удалось сохранить пачку после ${completed} сообщений: ${err.message||err}. Уже сохранённые пачки остались в памяти.`);
+   else toast(`Обработка остановлена. Успешно сохранено сообщений: ${completed}.`);
+ }finally{busy=false;aborter=null;render();}
 }
 async function saveNew(){const c=captureChat(),m=mem();if(!c.length){toast('В этом чате пока нет сообщений.');return;}const start=Math.max(0,lastProcessedIndex(m,c)+1),end=c.length-1;if(start>end){toast('Новых сообщений для архива нет.');return;}currentRange={start:String(start),end:String(end)};await saveRange(start,end,false);}
 function editNewRecord(){
