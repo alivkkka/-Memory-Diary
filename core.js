@@ -36,12 +36,15 @@ export function validSources(sources,map) {
   return Array.isArray(sources) && sources.length>0 && sources.every(s=>map.get(s.id)?.hash===s.hash);
 }
 export function emptyMemory() {
-  return {version:VERSION,records:[],batches:[],settings:clone(DEFAULTS),revision:0,lastProcessedIndex:-1,lastProcessedMessageId:null,branchId:uid()};
+  return {version:VERSION,records:[],batches:[],characters:[],relationships:[],timeline:[],settings:clone(DEFAULTS),revision:0,lastProcessedIndex:-1,lastProcessedMessageId:null,branchId:uid()};
 }
 export function normalizeMemory(raw) {
   const mem={...emptyMemory(),...(raw||{})};
   mem.records=Array.isArray(mem.records)?mem.records:[];
   mem.batches=Array.isArray(mem.batches)?mem.batches:[];
+  mem.characters=Array.isArray(mem.characters)?mem.characters:[];
+  mem.relationships=Array.isArray(mem.relationships)?mem.relationships:[];
+  mem.timeline=Array.isArray(mem.timeline)?mem.timeline:[];
   if(!Number.isInteger(mem.lastProcessedIndex)) mem.lastProcessedIndex=Math.max(-1,...mem.records.flatMap(r=>(r.sources||[]).map(s=>Number(s.index)).filter(Number.isInteger)),...mem.batches.map(b=>Number(b.end)).filter(Number.isInteger));
   const previousSettings=mem.settings||{};
   mem.settings={...clone(DEFAULTS),...previousSettings};
