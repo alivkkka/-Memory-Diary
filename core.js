@@ -36,12 +36,13 @@ export function validSources(sources,map) {
   return Array.isArray(sources) && sources.length>0 && sources.every(s=>map.get(s.id)?.hash===s.hash);
 }
 export function emptyMemory() {
-  return {version:VERSION,records:[],batches:[],settings:clone(DEFAULTS),revision:0,branchId:uid()};
+  return {version:VERSION,records:[],batches:[],settings:clone(DEFAULTS),revision:0,lastProcessedIndex:-1,branchId:uid()};
 }
 export function normalizeMemory(raw) {
   const mem={...emptyMemory(),...(raw||{})};
   mem.records=Array.isArray(mem.records)?mem.records:[];
   mem.batches=Array.isArray(mem.batches)?mem.batches:[];
+  if(!Number.isInteger(mem.lastProcessedIndex)) mem.lastProcessedIndex=Math.max(-1,...mem.records.flatMap(r=>(r.sources||[]).map(s=>Number(s.index)).filter(Number.isInteger)));
   const previousSettings=mem.settings||{};
   mem.settings={...clone(DEFAULTS),...previousSettings};
   // One-time migration: replace the old frequent per-message cadence with the user's new 50-message batch workflow.
