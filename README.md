@@ -1,6 +1,6 @@
 # MemoryBook — Long-Term RP Memory for SillyTavern
 
-**Development build 0.2.0.** Independent chat memory stored in the browser's IndexedDB.
+**Development build 0.2.3 — visual refresh.** Independent chat memory stored in the browser's IndexedDB.
 
 ## Install (development branch)
 
@@ -20,4 +20,4 @@ If SillyTavern's installer does not accept a branch URL, install the repository 
 
 ## Current status
 
-This is an early rebuild. Test the database migration and AI connection before relying on it for irreplaceable chats. Keep a backup of your chat.
+This is an early rebuild. The 0.2.3 update refreshes the interface styling without changing the memory database format or extraction logic. Test the database migration and AI connection before relying on it for irreplaceable chats. Keep a backup of your chat.
