@@ -36,7 +36,7 @@ export function validSources(sources,map) {
   return Array.isArray(sources) && sources.length>0 && sources.every(s=>map.get(s.id)?.hash===s.hash);
 }
 export function emptyMemory() {
-  return {version:VERSION,records:[],batches:[],settings:clone(DEFAULTS),revision:0,lastProcessedIndex:-1,branchId:uid()};
+  return {version:VERSION,records:[],batches:[],settings:clone(DEFAULTS),revision:0,lastProcessedIndex:-1,lastProcessedMessageId:null,branchId:uid()};
 }
 export function normalizeMemory(raw) {
   const mem={...emptyMemory(),...(raw||{})};
