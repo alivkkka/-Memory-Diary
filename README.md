@@ -1,6 +1,6 @@
 # MemoryBook — Long-Term RP Memory for SillyTavern
 
-**Development build 0.2.4 — visual rollback.** Independent chat memory stored in the browser's IndexedDB.
+**Development build 0.2.5 — functional sections.** Independent chat memory stored in the browser's IndexedDB.
 
 ## Install (development branch)
 
@@ -20,4 +20,4 @@ If SillyTavern's installer does not accept a branch URL, install the repository 
 
 ## Current status
 
-This is an early rebuild. The 0.2.4 update restores the previous interface styling after an unsuccessful visual refresh. It does not change the memory database format or extraction logic. Test the database migration and AI connection before relying on it for irreplaceable chats. Keep a backup of your chat.
+This is an early rebuild. The 0.2.5 update adds per-chat character profiles, pair-specific relationships, an RP timeline, an operation journal, and configurable API connection settings. It keeps the previous interface styling. Backups exclude API keys; imported backups are merged into the current chat book. Test the database migration and AI connection before relying on it for irreplaceable chats. Keep a backup of your chat.
