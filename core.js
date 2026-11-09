@@ -8,7 +8,7 @@ export const CATEGORIES = {
 export const DEFAULTS = {
   enabled:true, autoSave:false, autoEvery:50, maxAutoMessages:50, memoryMode:'balanced', autoBatchVersion:2,
   contextEnabled:true, contextDepth:2, contextLimit:12, autoRecall:true,
-  language:'ru', customPrompt:'', includeHiddenManual:true, lastAutoAt:0
+  language:'ru', customPrompt:'', apiMode:'st', apiUrl:'', apiKey:'', apiModel:'', includeHiddenManual:true, lastAutoAt:0
 };
 export const uid = () => globalThis.crypto?.randomUUID?.() || `mb-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 export const clone = x => JSON.parse(JSON.stringify(x));
