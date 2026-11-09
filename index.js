@@ -157,7 +157,7 @@ function captureChat(){const c=chat();if(ensureIds(c)){try{ctx().saveChat?.();}c
 function lastProcessedIndex(m=mem(),list=chat()){
  if(m.lastProcessedMessageId){const found=list.findIndex(message=>message.extra?.memoryBookId===m.lastProcessedMessageId);if(found>=0)return found;}
  if(Number.isInteger(m.lastProcessedIndex))return m.lastProcessedIndex;
- return Math.max(-1,...m.records.flatMap(r=>(r.sources||[]).map(s=>Number(s.index)).filter(Number.isInteger)));
+ return Math.max(-1,...m.records.flatMap(r=>(r.sources||[]).map(s=>Number(s.index)).filter(Number.isInteger)),...m.batches.map(b=>Number(b.end)).filter(Number.isInteger));
 }
 async function saveRange(startOverride,endOverride,automatic=false){
  if(busy)return toast('Подожди, предыдущая операция ещё выполняется.');
