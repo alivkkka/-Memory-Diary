@@ -111,7 +111,7 @@ async function onClick(e){
  const action=b.dataset.action,id=b.dataset.id,m=mem();
  try{
   if(action==='close'){close();return;}
-  if(action==='open-range'){const m=mem(),c=captureChat();const next=Math.min(Math.max(0,c.length-1),lastProcessedIndex(m)+1);currentRange={start:String(next),end:String(Math.max(0,c.length-1))};rangeOpen=true;render();return;}
+  if(action==='open-range'){const m=mem(),c=captureChat();const next=Math.min(Math.max(0,c.length-1),lastProcessedIndex(m,c)+1);currentRange={start:String(next),end:String(Math.max(0,c.length-1))};rangeOpen=true;render();return;}
   if(action==='close-range'){rangeOpen=false;render();return;}
   if(action==='save-range'){await saveRange();return;}
   if(action==='save-new'||action==='import-chat'){await saveNew();return;}
@@ -154,7 +154,8 @@ function editRecord(id){
 }
 function snapshot(m,i){return {...source(m,i),text:m.mes,name:m.name||'',is_user:!!m.is_user,is_hidden:hidden(m)};}
 function captureChat(){const c=chat();if(ensureIds(c)){try{ctx().saveChat?.();}catch{}}return c;}
-function lastProcessedIndex(m=mem()){
+function lastProcessedIndex(m=mem(),list=chat()){
+ if(m.lastProcessedMessageId){const found=list.findIndex(message=>message.extra?.memoryBookId===m.lastProcessedMessageId);if(found>=0)return found;}
  if(Number.isInteger(m.lastProcessedIndex))return m.lastProcessedIndex;
  return Math.max(-1,...m.records.flatMap(r=>(r.sources||[]).map(s=>Number(s.index)).filter(Number.isInteger)));
 }
@@ -179,14 +180,14 @@ async function saveRange(startOverride,endOverride,automatic=false){
    const parsed=validateExtraction(raw,selected.map(m=>({name:m.name,is_user:m.is_user,mes:m.mes,extra:{memoryBookId:m.extra?.memoryBookId,memoryBookIndex:m._mbIndex}})));
    const m=mem();let added=0,merged=0;
    for(const r of parsed.records){const result=mergeRecord(m,r);result.merged?merged++:added++;}
-   m.lastProcessedIndex=Math.max(lastProcessedIndex(m),end);
+   m.lastProcessedIndex=Math.max(lastProcessedIndex(m,list),end);m.lastProcessedMessageId=list[end]?.extra?.memoryBookId||m.lastProcessedMessageId||null;
    m.batches.push({id:uid(),at:Date.now(),title:automatic?'Автоматическая обработка пачки':'Сохранение диапазона',start,end,added:added+merged,summary:parsed.summary,automatic:!!automatic});
    m.batches=m.batches.slice(-100);m.revision=(m.revision||0)+1;
    await persist();rangeOpen=false;toast(`Готово: ${added} новых, ${merged} объединено. Обработано до сообщения №${end}.`);
  }catch(err){if(err.name!=='AbortError')toast(`Не удалось сохранить: ${err.message||err}`);}
  finally{busy=false;aborter=null;render();}
 }
-async function saveNew(){const c=captureChat(),m=mem();if(!c.length){toast('В этом чате пока нет сообщений.');return;}const start=Math.max(0,lastProcessedIndex(m)+1),end=c.length-1;if(start>end){toast('Новых сообщений для архива нет.');return;}currentRange={start:String(start),end:String(end)};await saveRange(start,end,false);}
+async function saveNew(){const c=captureChat(),m=mem();if(!c.length){toast('В этом чате пока нет сообщений.');return;}const start=Math.max(0,lastProcessedIndex(m,c)+1),end=c.length-1;if(start>end){toast('Новых сообщений для архива нет.');return;}currentRange={start:String(start),end:String(end)};await saveRange(start,end,false);}
 function editNewRecord(){
  const title=prompt('Заголовок нового воспоминания');if(title===null||!title.trim())return;
  const content=prompt('Что нужно запомнить?');if(content===null||!content.trim())return;
