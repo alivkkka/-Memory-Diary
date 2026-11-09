@@ -332,3 +332,8 @@
 
 /* 0.2.2 — keep manual range controls collapsed until explicitly requested. */
 .mb-range-toolbar{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.mb-range-toolbar button{flex:1 1 28%;min-width:0;white-space:normal;font-size:10px!important;line-height:1.25}.mb-range-box{margin-top:8px}
+
+/* Functional navigation: keep all section tabs reachable without changing the visual theme. */
+.mb-tabs{display:flex;flex-wrap:wrap;overflow:visible;white-space:normal}
+.mb-tabs button{flex:0 1 auto}
+@media(max-width:600px){.mb-tabs{justify-content:center}.mb-tabs button{flex:1 1 auto}}
