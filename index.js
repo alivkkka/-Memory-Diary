@@ -7,10 +7,36 @@ const ctx=()=>{ try{return getContext?.()||globalThis.SillyTavern?.getContext?.(
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let panel=null, activeTab='memories', busy=false, autoCounter=0, lastScope='', search='', filter='all', currentRange={start:'',end:''}, aborter=null;
+let memoryCache=null, memoryCacheScope='', databasePromise=null;
 const scope=()=>{const c=ctx();return `${c.groupId||'solo'}:${c.characterId??''}:${c.getCurrentChatId?.()??c.chatId??''}`;};
 function chat(){return ctx().chat||[];}
-function mem(){const c=ctx();if(!c.chatMetadata)c.chatMetadata={};c.chatMetadata[KEY]=normalizeMemory(c.chatMetadata[KEY]);return c.chatMetadata[KEY];}
-async function persist(){const c=ctx();if(typeof c.saveMetadata==='function') await c.saveMetadata();render();updateContext();}
+function openDatabase(){
+ if(databasePromise)return databasePromise;
+ databasePromise=new Promise((resolve,reject)=>{
+  const request=indexedDB.open('sillytavern-memorybook',1);
+  request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains('books'))db.createObjectStore('books',{keyPath:'key'});};
+  request.onsuccess=()=>resolve(request.result);
+  request.onerror=()=>reject(request.error||new Error('Не удалось открыть локальную базу MemoryBook.'));
+ });
+ return databasePromise;
+}
+async function databaseGet(key){const db=await openDatabase();return new Promise((resolve,reject)=>{const tx=db.transaction('books','readonly');const req=tx.objectStore('books').get(key);req.onsuccess=()=>resolve(req.result?.data??null);req.onerror=()=>reject(req.error);});}
+async function databasePut(key,data){const db=await openDatabase();return new Promise((resolve,reject)=>{const tx=db.transaction('books','readwrite');tx.objectStore('books').put({key,data,updatedAt:Date.now()});tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('Сохранение отменено.'));});}
+function mem(){if(memoryCacheScope!==scope()||!memoryCache){memoryCacheScope=scope();memoryCache=emptyMemory();}return memoryCache;}
+async function loadMemory(){
+ const key=scope();memoryCacheScope=key;
+ try{
+  let stored=await databaseGet(key);
+  if(!stored){const c=ctx();const legacy=normalizeMemory(c.chatMetadata?.[KEY]);stored=legacy;await databasePut(key,legacy);if(c.chatMetadata?.[KEY]){delete c.chatMetadata[KEY];await c.saveMetadata?.();}}
+  if(scope()!==key)return;
+  memoryCache=normalizeMemory(stored);render();updateContext();
+ }catch(error){
+  console.error('[MemoryBook] Database load failed:',error);
+  memoryCache=emptyMemory();memoryCacheScope=key;
+  toast('Не удалось открыть базу памяти. Проверь настройки браузера и IndexedDB.');
+ }
+}
+async function persist(){await databasePut(scope(),mem());render();updateContext();}
 function toast(msg){let t=$('#mb-toast');if(!t){t=document.createElement('div');t.id='mb-toast';document.body.append(t);}t.textContent=msg;t.hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.hidden=true,4500);}
 function ensurePanel(){
  if($('#mb-panel')){panel=$('#mb-panel');return;}
@@ -176,11 +202,11 @@ function installEvents(){
  const ev=event_types||{};
  for(const name of ['CHAT_CHANGED','MESSAGE_RECEIVED','MESSAGE_SENT','GENERATION_ENDED','GENERATION_STARTED']){
    const type=ev[name]||name;
-   try{eventSource.on(type,()=>{if(scope()!==lastScope){lastScope=scope();autoCounter=0;}updateContext();if(name==='MESSAGE_RECEIVED'||name==='MESSAGE_SENT'){autoCounter++;const s=mem().settings;if(s.autoSave&&autoCounter>=Math.max(10,Number(s.autoEvery)||50)&&!busy){autoCounter=0;saveRange(undefined,undefined,true);}}});}catch{}
+   try{eventSource.on(type,()=>{if(scope()!==lastScope){lastScope=scope();autoCounter=0;loadMemory();return;}updateContext();if(name==='MESSAGE_RECEIVED'||name==='MESSAGE_SENT'){autoCounter++;const s=mem().settings;if(s.autoSave&&autoCounter>=Math.max(10,Number(s.autoEvery)||50)&&!busy){autoCounter=0;saveRange(undefined,undefined,true);}}});}catch{}
  }
 }
 function init(){
- setupFloating();ensurePanel();ensureWand();ensureSettings();installEvents();lastScope=scope();
+ setupFloating();ensurePanel();ensureWand();ensureSettings();installEvents();lastScope=scope();loadMemory();
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel&&!panel.hidden)close();});
  updateContext();
  // SillyTavern creates some extension UI containers after third-party scripts load.
