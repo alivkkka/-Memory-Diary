@@ -25,8 +25,9 @@ export async function extract(messages, settings, ctx, signal) {
       body:JSON.stringify({model:settings.apiModel,messages:[{role:'system',content:SYSTEM_PROMPT},{role:'user',content:prompt}],temperature:0.2,max_tokens:2500}),
       signal,credentials:'omit',redirect:'error'
     });
-    if(!res.ok) throw Error(`API вернул HTTP ${res.status}. Проверь URL, ключ, модель и лимит.`);
-    const d=await res.json(); text=d.choices?.[0]?.message?.content||'';
+    if(!res.ok){let detail='';try{const body=await res.text();detail=body.slice(0,700);}catch{}throw Error(`API вернул HTTP ${res.status}. ${detail||'Проверь URL, ключ, модель и лимит.'}`);}
+    const d=await res.json(); text=d.choices?.[0]?.message?.content||d.choices?.[0]?.text||'';
+    if(!text.trim())throw Error('Модель вернула пустой ответ. Проверь выбранную модель, лимит ответа и настройки генерации SillyTavern.');
   } else {
     if(typeof ctx.generateRaw!=='function') throw Error('Текущая сборка SillyTavern не предоставляет generateRaw. Обнови Таверну или выбери отдельный API.');
     text=await ctx.generateRaw({systemPrompt:SYSTEM_PROMPT,prompt,responseLength:2500,trimNames:false});
